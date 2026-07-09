@@ -1,10 +1,6 @@
 import React from 'react';
-import ProjectIntro from './ProjectIntro';
+import AirPodsLog from './AirPodsLog';
 
 export default function App() {
-  return (
-    <div>
-      <ProjectIntro />
-    </div>
-  );
+  return <AirPodsLog />;
 }
