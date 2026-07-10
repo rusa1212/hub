@@ -8,7 +8,7 @@ export default function AirPodsLog() {
   const [agentStatus, setAgentStatus] = useState('idle'); // 'idle' | 'analyzing' | 'speaking'
   
   const chatEndRef = useRef(null);
-
+  // 메시지 관련 작성
   // 메시지가 추가될 때마다 스크롤을 맨 아래로 내림
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
