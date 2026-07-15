@@ -112,6 +112,11 @@
   box-shadow: var(--glow-gold);
 }
 
+.status-dot--recording {
+  background: var(--color-teal);
+  box-shadow: var(--glow-teal);
+}
+
 .status-text {
   font-family: var(--font-label);
   font-size: var(--fs-label);
@@ -187,6 +192,17 @@
   color: var(--text-primary);
 }
 
+.bubble--speaking {
+  color: var(--text-secondary);
+  font-style: italic;
+  animation: speaking-fade 1.4s ease-in-out infinite;
+}
+
+@keyframes speaking-fade {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
 /* ===== 입력 영역 ===== */
 .input-area {
   padding: var(--space-md);
@@ -213,6 +229,18 @@
 .mic-button:disabled {
   opacity: 0.4;
   cursor: not-allowed;
+}
+
+.mic-button--recording {
+  color: var(--color-teal);
+  border-color: var(--color-teal);
+  box-shadow: var(--glow-teal);
+  animation: mic-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes mic-pulse {
+  0%, 100% { opacity: 0.8; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.08); }
 }
 
 .chat-textarea {
