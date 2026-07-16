@@ -1,10 +1,26 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { createSession, sendMessage, transcribeAudio, synthesizeSpeech } from './api';
 import { blobToWav } from './audioUtils';
 import './AirPodsLog.css';
 
+const SITUATIONS = [
+  { id: 'studying', emoji: '📚', label: '공부 중' },
+  { id: 'exercising', emoji: '🏃', label: '운동 중' },
+  { id: 'sleeping', emoji: '🌙', label: '자기 전' },
+  { id: null, emoji: '💬', label: '그냥 대화' },
+];
+
+const SITUATION_GREETINGS = {
+  studying: '공부 중이구나, 방해되지 않게 조용히 있을게. 필요할 때 편하게 불러줘.',
+  exercising: '운동 중이구나! 텐션 확 올려줄 준비 됐어.',
+  sleeping: '자기 전이구나, 편안하게 갈 수 있게 준비할게.',
+  default: '안녕, 나는 너의 플레이리스트 친구야. 오늘 하루는 어땠어?',
+};
+
 export default function AirPodsLog() {
-  const [currentStep, setCurrentStep] = useState('home');
+  const navigate = useNavigate();
+  const location = useLocation();
   // 대화 기록을 저장하는 배열 (API 연동 시 이 배열을 통째로 LLM에 보냄)
   const [messages, setMessages] = useState([]);
   const [inputValue, setInputValue] = useState('');
@@ -34,11 +50,28 @@ export default function AirPodsLog() {
     };
   }, []);
 
-  const handleStart = async () => {
-    setCurrentStep('chat');
+  // /chat을 새로고침 등으로 직접 열면 세션 상태가 없으니 처음 화면으로 돌려보냄
+  useEffect(() => {
+    if (location.pathname === '/chat' && !sessionId) {
+      navigate('/', { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleStart = () => {
+    navigate('/situation');
+  };
+
+  const handleSelectSituation = async (situationId) => {
+    navigate('/chat');
     try {
-      const { sessionId } = await createSession();
+      const { sessionId } = await createSession(situationId);
       setSessionId(sessionId);
+
+      const greeting = SITUATION_GREETINGS[situationId] ?? SITUATION_GREETINGS.default;
+      const greetingMsg = { id: Date.now(), sender: 'agent', text: greeting };
+      setMessages((prev) => [...prev, greetingMsg]);
+      playReply(greeting);
     } catch (err) {
       const fallbackMsg = {
         id: Date.now(),
@@ -176,106 +209,128 @@ export default function AirPodsLog() {
     }
   };
 
+  const HomeScreen = (
+    <div className="home-screen">
+      <div className="home-icon">🎧</div>
+      <h1 className="home-title">AirPods Log</h1>
+      <p className="home-subtitle">상황을 기록하면, 당신만의 에이전트가<br/>오디오로 대화를 이어갑니다.</p>
+      <button className="btn-primary" onClick={handleStart}>
+        에이전트 연결하기
+      </button>
+    </div>
+  );
+
+  const SituationScreen = (
+    <div className="situation-screen">
+      <h2 className="situation-title">지금 어떤 상황이야?</h2>
+      <p className="situation-subtitle">상황에 맞춰 톤과 추천을 바꿀게요.</p>
+      <div className="situation-options">
+        {SITUATIONS.map((s) => (
+          <button
+            key={s.label}
+            className="situation-option"
+            onClick={() => handleSelectSituation(s.id)}
+          >
+            <span className="situation-option-emoji">{s.emoji}</span>
+            <span className="situation-option-label">{s.label}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+
+  const ChatScreen = (
+    <div className="chat-container">
+      {/* 상단 헤더 */}
+      <header className="chat-header">
+        <span
+          className={`status-dot ${isRecording ? 'status-dot--recording' : ''} ${agentStatus === 'analyzing' || isSpeaking ? 'status-dot--analyzing' : ''}`}
+        ></span>
+        <span className="status-text">
+          {isRecording
+            ? '음성 듣는 중...'
+            : agentStatus === 'analyzing'
+            ? '상황 분석 중...'
+            : isSpeaking
+            ? '답변 준비 중...'
+            : '에이전트 대기 중'}
+        </span>
+      </header>
+
+      {/* 대화 로그 영역 */}
+      <div className="messages-area">
+        {messages.length === 0 && (
+          <p className="empty-message">"오늘 하루는 어땠나요? 가볍게 털어놓아 보세요."</p>
+        )}
+
+        {messages.map((msg) => (
+          <div key={msg.id} className={`msg-row ${msg.sender === 'user' ? 'msg-row--user' : 'msg-row--agent'}`}>
+            {msg.sender === 'agent' && <div className="agent-avatar">AI</div>}
+            <div className={`bubble ${msg.sender === 'user' ? 'bubble--user' : 'bubble--agent'}`}>
+              {msg.text}
+            </div>
+          </div>
+        ))}
+
+        {/* 분석 중 애니메이션 인디케이터 */}
+        {agentStatus !== 'idle' && (
+          <div className="msg-row msg-row--agent">
+            <div className="agent-avatar">AI</div>
+            <div className="bubble bubble--agent">분석 중...</div>
+          </div>
+        )}
+
+        {/* 텍스트 응답 후 음성 생성 중임을 알려주는 인디케이터 (체감 지연 완화) */}
+        {agentStatus === 'idle' && isSpeaking && (
+          <div className="msg-row msg-row--agent">
+            <div className="agent-avatar">AI</div>
+            <div className="bubble bubble--agent bubble--speaking">🔊 말하는 중...</div>
+          </div>
+        )}
+        <div ref={chatEndRef} />
+      </div>
+
+      {/* 하단 입력 영역 */}
+      <div className="input-area">
+        <button
+          className={`mic-button ${isRecording ? 'mic-button--recording' : ''}`}
+          onClick={handleMicClick}
+          disabled={agentStatus !== 'idle'}
+          title={isRecording ? '녹음 종료' : '음성 입력'}
+        >
+          {isRecording ? '⏹️' : '🎙️'}
+        </button>
+        <textarea
+          className="chat-textarea"
+          value={inputValue}
+          onChange={(e) => setInputValue(e.target.value)}
+          onKeyDown={handleKeyPress}
+          placeholder={agentStatus === 'idle' ? "메시지 입력..." : "에이전트가 말하는 중입니다..."}
+          disabled={agentStatus !== 'idle' || isRecording}
+          rows={1}
+        />
+        <button
+          className="btn-primary send-button"
+          onClick={handleSendMessage}
+          disabled={!inputValue.trim() || agentStatus !== 'idle' || isRecording}
+        >
+          전송
+        </button>
+      </div>
+
+      <audio ref={audioPlayerRef} hidden />
+    </div>
+  );
+
   return (
     <div className="app-shell">
       <div className="app-window">
-
-        {/* 시작 화면 */}
-        {currentStep === 'home' && (
-          <div className="home-screen">
-            <div className="home-icon">🎧</div>
-            <h1 className="home-title">AirPods Log</h1>
-            <p className="home-subtitle">상황을 기록하면, 당신만의 에이전트가<br/>오디오로 대화를 이어갑니다.</p>
-            <button className="btn-primary" onClick={handleStart}>
-              에이전트 연결하기
-            </button>
-          </div>
-        )}
-
-        {/* 연속 대화 화면 */}
-        {currentStep === 'chat' && (
-          <div className="chat-container">
-            {/* 상단 헤더 */}
-            <header className="chat-header">
-              <span
-                className={`status-dot ${isRecording ? 'status-dot--recording' : ''} ${agentStatus === 'analyzing' || isSpeaking ? 'status-dot--analyzing' : ''}`}
-              ></span>
-              <span className="status-text">
-                {isRecording
-                  ? '음성 듣는 중...'
-                  : agentStatus === 'analyzing'
-                  ? '상황 분석 중...'
-                  : isSpeaking
-                  ? '답변 준비 중...'
-                  : '에이전트 대기 중'}
-              </span>
-            </header>
-
-            {/* 대화 로그 영역 */}
-            <div className="messages-area">
-              {messages.length === 0 && (
-                <p className="empty-message">"오늘 하루는 어땠나요? 가볍게 털어놓아 보세요."</p>
-              )}
-
-              {messages.map((msg) => (
-                <div key={msg.id} className={`msg-row ${msg.sender === 'user' ? 'msg-row--user' : 'msg-row--agent'}`}>
-                  {msg.sender === 'agent' && <div className="agent-avatar">AI</div>}
-                  <div className={`bubble ${msg.sender === 'user' ? 'bubble--user' : 'bubble--agent'}`}>
-                    {msg.text}
-                  </div>
-                </div>
-              ))}
-
-              {/* 분석 중 애니메이션 인디케이터 */}
-              {agentStatus !== 'idle' && (
-                <div className="msg-row msg-row--agent">
-                  <div className="agent-avatar">AI</div>
-                  <div className="bubble bubble--agent">분석 중...</div>
-                </div>
-              )}
-
-              {/* 텍스트 응답 후 음성 생성 중임을 알려주는 인디케이터 (체감 지연 완화) */}
-              {agentStatus === 'idle' && isSpeaking && (
-                <div className="msg-row msg-row--agent">
-                  <div className="agent-avatar">AI</div>
-                  <div className="bubble bubble--agent bubble--speaking">🔊 말하는 중...</div>
-                </div>
-              )}
-              <div ref={chatEndRef} />
-            </div>
-
-            {/* 하단 입력 영역 */}
-            <div className="input-area">
-              <button
-                className={`mic-button ${isRecording ? 'mic-button--recording' : ''}`}
-                onClick={handleMicClick}
-                disabled={agentStatus !== 'idle'}
-                title={isRecording ? '녹음 종료' : '음성 입력'}
-              >
-                {isRecording ? '⏹️' : '🎙️'}
-              </button>
-              <textarea
-                className="chat-textarea"
-                value={inputValue}
-                onChange={(e) => setInputValue(e.target.value)}
-                onKeyDown={handleKeyPress}
-                placeholder={agentStatus === 'idle' ? "메시지 입력..." : "에이전트가 말하는 중입니다..."}
-                disabled={agentStatus !== 'idle' || isRecording}
-                rows={1}
-              />
-              <button
-                className="btn-primary send-button"
-                onClick={handleSendMessage}
-                disabled={!inputValue.trim() || agentStatus !== 'idle' || isRecording}
-              >
-                전송
-              </button>
-            </div>
-
-            <audio ref={audioPlayerRef} hidden />
-          </div>
-        )}
-
+        <Routes>
+          <Route path="/" element={HomeScreen} />
+          <Route path="/situation" element={SituationScreen} />
+          <Route path="/chat" element={ChatScreen} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
       </div>
     </div>
   );

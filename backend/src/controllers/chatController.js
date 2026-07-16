@@ -15,7 +15,7 @@ export async function postChat(req, res, next) {
 
   try {
     appendTurn(sessionId, 'user', message);
-    const reply = await generateReply(session.history);
+    const reply = await generateReply(session.history, session.situation);
     appendTurn(sessionId, 'model', reply);
     res.json({ reply });
   } catch (err) {

@@ -3,9 +3,9 @@ import { randomUUID } from 'node:crypto';
 // MVP: 세션 히스토리를 서버 메모리에 보관 (agent.md Step 1 권장안)
 const sessions = new Map();
 
-export function createSession() {
+export function createSession(situation = null) {
   const sessionId = randomUUID();
-  sessions.set(sessionId, { history: [] });
+  sessions.set(sessionId, { history: [], situation });
   return sessionId;
 }
 

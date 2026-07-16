@@ -7,8 +7,12 @@ async function request(path, options) {
   return data;
 }
 
-export function createSession() {
-  return request('/api/session', { method: 'POST' });
+export function createSession(situation) {
+  return request('/api/session', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ situation: situation ?? null }),
+  });
 }
 
 export function sendMessage(sessionId, message) {

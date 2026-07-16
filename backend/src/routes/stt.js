@@ -1,10 +1,14 @@
 import { Router } from 'express';
+import multer from 'multer';
+import { postStt } from '../controllers/sttController.js';
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 },
+});
 
 const router = Router();
 
-// Step 3에서 구현 예정: 음성 파일 -> 텍스트 변환
-router.post('/', (req, res) => {
-  res.status(501).json({ message: 'STT는 아직 구현되지 않았습니다.' });
-});
+router.post('/', upload.single('audio'), postStt);
 
 export default router;
