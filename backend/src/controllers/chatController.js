@@ -8,15 +8,16 @@ export async function postChat(req, res, next) {
     return res.status(400).json({ message: 'sessionId와 message는 필수입니다.' });
   }
 
-  const session = getSession(sessionId);
-  if (!session) {
-    return res.status(404).json({ message: '세션을 찾을 수 없습니다. /api/session으로 먼저 세션을 생성하세요.' });
-  }
-
   try {
-    appendTurn(sessionId, 'user', message);
-    const reply = await generateReply(session.history, session.situation);
-    appendTurn(sessionId, 'model', reply);
+    const session = await getSession(sessionId);
+    if (!session) {
+      return res.status(404).json({ message: '세션을 찾을 수 없습니다. /api/session으로 먼저 세션을 생성하세요.' });
+    }
+
+    await appendTurn(sessionId, 'user', message);
+    const history = [...session.history, { role: 'user', parts: [{ text: message }] }];
+    const reply = await generateReply(history, session.situation);
+    await appendTurn(sessionId, 'model', reply);
     res.json({ reply });
   } catch (err) {
     next(err);
