@@ -162,8 +162,35 @@
   border-bottom: var(--bracket-width) solid var(--line-neutral);
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: var(--space-sm);
   background: var(--color-bg-elevated);
+}
+
+.chat-header-status {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.end-button {
+  flex-shrink: 0;
+  background: transparent;
+  border: 1px solid var(--line-neutral);
+  color: var(--text-secondary);
+  font-family: var(--font-label);
+  font-size: var(--fs-label);
+  letter-spacing: var(--letter-spacing-label);
+  text-transform: uppercase;
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.end-button:hover,
+.end-button:focus-visible {
+  border-color: var(--color-teal);
+  color: var(--color-teal);
 }
 
 .status-dot {
@@ -190,6 +217,14 @@
   text-transform: uppercase;
   color: var(--text-secondary);
   font-weight: var(--fw-label);
+}
+
+.waveform-canvas {
+  display: block;
+  width: 100%;
+  height: 56px;
+  background: var(--color-bg-elevated);
+  border-bottom: var(--bracket-width) solid var(--line-neutral);
 }
 
 .messages-area {

@@ -92,8 +92,21 @@ audioElement.play();
 ---
 
 ## 구현 체크리스트
-- [ ] 마이크 입력 스트림에 AnalyserNode 분기 (MediaRecorder와 병렬 연결)
-- [ ] 파형 그리기용 Canvas 컴포넌트 작성 (requestAnimationFrame 루프)
-- [ ] TTS 재생 경로에 AnalyserNode 추가 (audio 엘리먼트 재사용 이슈 처리)
-- [ ] 사용자 발화 파형 / AI 응답 파형 UI 상태 분리 (녹음 중 vs 재생 중)
-- [ ] 언마운트/재생 종료 시 AudioContext 및 애니메이션 루프 정리
+- [x] 마이크 입력 스트림에 AnalyserNode 분기 (MediaRecorder와 병렬 연결)
+      → `AirPodsLog.jsx`의 `startSilenceWatcher`. 무음 감지(VAD)용으로 이미 만들어둔
+      AnalyserNode(`micAnalyserRef`)를 파형 그리기와 공유.
+- [x] 파형 그리기용 Canvas 컴포넌트 작성 (requestAnimationFrame 루프)
+      → `waveform-canvas` + 전용 `useEffect`(draw 루프). 라우트가 `/chat`으로 바뀔 때마다
+      canvas가 새로 mount되므로 `location.pathname`을 의존성으로 둬서 루프를 재부착.
+- [x] TTS 재생 경로에 AnalyserNode 추가 (audio 엘리먼트 재사용 이슈 처리)
+      → `ensureTtsAnalyser`: 앱 전체에서 재사용하는 단일 `<audio>` 엘리먼트에 대해
+      `createMediaElementSource`를 최초 1회만 호출하고 이후 응답부터는 재사용.
+- [x] 사용자 발화 파형 / AI 응답 파형 UI 상태 분리 (녹음 중 vs 재생 중)
+      → draw 루프에서 `conversationState`가 `listening`이면 마이크 파형(teal),
+      `speaking`이면 TTS 파형(gold), 그 외엔 중앙 직선으로 분리 렌더링.
+- [x] 언마운트/재생 종료 시 AudioContext 및 애니메이션 루프 정리
+      → 마이크 쪽은 `stopSilenceWatcher`(매 LISTENING 종료 시), TTS/파형 쪽은 컴포넌트
+      언마운트 시 `ttsAudioContextRef`/`waveformRafRef` 정리.
+
+파형 시각화가 구현됨에 따라, fixPlan.md의 이슈 2/3 체크리스트에 남아있던
+"파형 시각화 파이프라인과 통합" 항목도 함께 완료됨.
