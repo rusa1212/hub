@@ -1,0 +1,80 @@
+{
+  "schemaVersion": 1,
+  "title": "사용자 맞춤 음성 대화형 서비스",
+  "summary": "누군가와 거리낌없이 대화하고 싶은 대학생들이 원하는 목소리를 선택하여 ai와 음성대화하는 서비스",
+  "githubUser": "rusa1212(문용권)",
+  "demoUrl": "",
+  "thumbnail": "thumbnail.webp",
+  "screenshots": [
+    "screenshots/home.webp"
+  ],
+  "problem": "이동 중이거나 휴식 시 스마트폰 화면을 보지 않고(Screen-free), 청각(오디오) 채널만을 활용하여 즉각적이고 가볍게 스트레스를 케어받고자 하는 잠재적 수요가 존재합니다.",
+  "targetUsers": [
+    "화면 피로도에 지친 대학생"
+  ],
+  "features": [
+    "원하는 페르소나를 선택할 수 있습니다.",
+    "페르소나 선택 후 음성만 있으면 대화할 수 있습니다.",
+    "원하는 목소리를 설정할 수 있습니다."
+  ],
+  "featureTags": [
+    "공부 중",
+    "운동 중",
+    "자기 전"
+  ],
+  "techStack": [
+    "React",
+    "JavaScript",
+    "Express",
+    "Supabase",
+    "Gemini api"
+  ],
+  "techHighlights": [
+    "MediaRecorder로 녹음한 webm/opus 음성을 WAV로 재인코딩해 Gemini STT와 호환되는 포맷으로 변환합니다.",
+    "Express(ESM) 백엔드에서 STT → LLM 대화 → TTS로 이어지는 음성 파이프라인을 세션 단위(Map 기반 in-memory 히스토리)로 처리합니다.",
+    "원본 음성 파일은 저장하지 않고 STT로 변환된 텍스트만 보관하는 프라이버시 우선 구조를 설계했습니다."
+  ],
+  "developmentWithAI": "저는 문제와 핵심 기능, 프라이버시 원칙(음성 원본 미저장) 같은 제약 조건을 정했습니다. AI는 이를 4주 스프린트 단위 작업으로 나누고, STT-LLM-TTS 파이프라인과 DB 연동 구조에 대한 코드 초안 및 설계 문서를 만들었습니다. 저는 결과를 직접 실행하고 테스트하면서 페르소나 응답 오류, 녹음 종료 로직 같은 버그를 찾아 수정했습니다.",
+  "agent": {
+    "summary": "기획부터 구현, 테스트까지 Agent와 Skill을 함께 사용했습니다.",
+    "agentTools": [
+      {
+        "type": "agent",
+        "name": "개발 계획 Agent",
+        "purpose": "주간 스프린트 목표를 GitHub Issue 단위 작업으로 나누고 우선순위(P0/P1/P2)를 정합니다."
+      },
+      {
+        "type": "skill",
+        "name": "코드 작성 Skill",
+        "purpose": "음성 파이프라인(STT/LLM/TTS)과 DB 연동 등 정해진 작업에 필요한 코드 초안을 만듭니다."
+      },
+      {
+        "type": "skill",
+        "name": "테스트 점검 Skill",
+        "purpose": "녹음-변환-응답-재생까지 이어지는 주요 기능을 확인할 테스트 항목을 만듭니다."
+      }
+    ],
+    "workflows": [
+      {
+        "name": "기능 개발 Workflow",
+        "steps": [
+          "기능 명세 작성",
+          "GitHub Issue 등록",
+          "개별 코드 브랜치 만들기",
+          "Agent에게 구현 계획 요청",
+          "코드 작성",
+          "테스트 실행"
+        ]
+      },
+      {
+        "name": "PR 협업 Workflow",
+        "steps": [
+          "PR 작성",
+          "Agent에게 변경 내용 점검 요청",
+          "리뷰 의견 반영",
+          "최종 결과 확인"
+        ]
+      }
+    ]
+  }
+}
