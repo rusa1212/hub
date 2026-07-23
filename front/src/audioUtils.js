@@ -46,10 +46,13 @@ function encodeWav(audioBuffer) {
   return buffer;
 }
 
-function interleave(left, right) {
-  const result = new Float32Array(left.length + right.length);
+// 두 채널의 길이가 다를 수 있으므로, 공통 길이(min)까지만 안전하게 인터리브한다.
+// (길이가 다른 입력에서 NaN이나 0 패딩이 섞여 들어가는 것을 방지)
+export function interleave(left, right) {
+  const length = Math.min(left.length, right.length);
+  const result = new Float32Array(length * 2);
   let index = 0;
-  for (let i = 0; i < left.length; i++) {
+  for (let i = 0; i < length; i++) {
     result[index++] = left[i];
     result[index++] = right[i];
   }
