@@ -1,0 +1,454 @@
+/* ===== 로그인/회원가입 & 기록 화면 ===== */
+@keyframes auth-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes auth-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.auth-screen {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  text-align: center;
+  padding: var(--space-xl) var(--space-lg) var(--space-lg);
+  gap: var(--space-md);
+  animation: auth-fade-in 0.25s ease;
+}
+
+.auth-close {
+  position: absolute;
+  top: var(--space-sm);
+  right: var(--space-sm);
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid var(--line-neutral);
+  border-radius: var(--radius-pill);
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.auth-close:hover,
+.auth-close:focus-visible {
+  border-color: var(--color-teal);
+  color: var(--color-teal);
+  outline: none;
+}
+
+.auth-badge {
+  width: 52px;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  border-radius: var(--radius-pill);
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-teal-dim);
+  box-shadow: var(--glow-teal);
+}
+
+.auth-title {
+  font-family: var(--font-heading);
+  font-weight: var(--fw-heading);
+  font-size: var(--fs-h2);
+  color: var(--color-white);
+  margin: 0;
+}
+
+.auth-subtitle {
+  font-family: var(--font-body);
+  font-size: var(--fs-body);
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin: 0;
+}
+
+/* ===== 로그인/회원가입 탭 ===== */
+.auth-tabs {
+  display: flex;
+  width: 100%;
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--line-neutral);
+  border-radius: var(--radius-pill);
+  padding: 3px;
+  gap: 3px;
+}
+
+.auth-tab {
+  flex: 1;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-pill);
+  padding: var(--space-sm) 0;
+  color: var(--text-secondary);
+  font-family: var(--font-label);
+  font-size: var(--fs-label);
+  letter-spacing: var(--letter-spacing-label);
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.auth-tab--active {
+  background: var(--color-teal);
+  color: var(--color-bg);
+  font-weight: var(--fw-heading);
+}
+
+/* ===== 입력 폼 ===== */
+.auth-form {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.auth-field {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  width: 100%;
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-teal-dim);
+  border-radius: var(--radius-sm);
+  padding: 0 var(--space-md);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.auth-field:focus-within {
+  border-color: var(--color-teal);
+  box-shadow: var(--glow-teal);
+}
+
+.auth-field-icon {
+  flex-shrink: 0;
+  font-size: 14px;
+  opacity: 0.8;
+}
+
+.auth-input {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  padding: var(--space-sm) 0;
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  font-size: var(--fs-body);
+}
+
+.auth-input:focus {
+  outline: none;
+}
+
+.auth-message {
+  font-size: var(--fs-caption);
+  margin: 0;
+  text-align: left;
+}
+
+.auth-message--error {
+  color: var(--color-gold);
+}
+
+.auth-message--info {
+  color: var(--color-teal);
+}
+
+.auth-submit {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+}
+
+.auth-spinner {
+  display: inline-block;
+  width: 15px;
+  height: 15px;
+  border: 2px solid rgba(10, 10, 10, 0.3);
+  border-top-color: var(--color-bg);
+  border-radius: 50%;
+  animation: auth-spin 0.7s linear infinite;
+}
+
+.auth-toggle-mode,
+.auth-back {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-family: var(--font-label);
+  font-size: var(--fs-caption);
+  cursor: pointer;
+  padding: 0;
+}
+
+.auth-toggle-mode:hover,
+.auth-back:hover,
+.auth-toggle-mode:focus-visible,
+.auth-back:focus-visible {
+  color: var(--color-teal);
+  outline: none;
+}
+
+/* ===== 기록 화면 ===== */
+.history-screen {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: var(--space-md);
+  gap: var(--space-md);
+  overflow-y: auto;
+  animation: auth-fade-in 0.25s ease;
+}
+
+.history-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+}
+
+.history-header .auth-title {
+  flex: 1;
+}
+
+.history-back-btn,
+.history-header-spacer {
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+}
+
+.history-back-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid var(--line-neutral);
+  border-radius: var(--radius-pill);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.history-back-btn:hover,
+.history-back-btn:focus-visible {
+  border-color: var(--color-teal);
+  color: var(--color-teal);
+  outline: none;
+}
+
+.history-notice {
+  font-family: var(--font-body);
+  font-size: var(--fs-caption);
+  color: var(--text-muted);
+  margin: 0;
+  padding: var(--space-sm);
+  background: var(--color-bg-elevated);
+  border-radius: var(--radius-sm);
+  border-left: 3px solid var(--color-teal-dim);
+  text-align: left;
+}
+
+.history-status-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  color: var(--text-secondary);
+  font-size: var(--fs-caption);
+}
+
+.history-status-row .auth-spinner {
+  border-color: rgba(255, 255, 255, 0.15);
+  border-top-color: var(--color-teal);
+}
+
+.history-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-lg) 0;
+  text-align: center;
+}
+
+.history-empty-icon {
+  font-size: 36px;
+  opacity: 0.6;
+}
+
+.history-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.history-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--line-neutral);
+  border-radius: var(--radius-sm);
+  padding: var(--space-sm) var(--space-md);
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  cursor: pointer;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.history-item:hover,
+.history-item--active {
+  border-color: var(--color-teal);
+}
+
+.history-item--active {
+  box-shadow: var(--glow-teal);
+}
+
+.history-item-emoji {
+  font-size: 20px;
+  flex-shrink: 0;
+}
+
+.history-item-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+
+.history-item-label {
+  font-size: var(--fs-body);
+  color: var(--text-primary);
+}
+
+.history-item-date {
+  color: var(--text-muted);
+  font-size: var(--fs-caption);
+}
+
+.history-item-chevron {
+  flex-shrink: 0;
+  color: var(--text-muted);
+  transition: transform 0.2s ease;
+}
+
+.history-item-chevron--open {
+  color: var(--color-teal);
+  transform: rotate(180deg);
+}
+
+.history-detail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  padding: var(--space-md) var(--space-sm) var(--space-xs);
+  animation: auth-fade-in 0.2s ease;
+}
+
+.history-danger-zone {
+  margin-top: auto;
+  padding-top: var(--space-md);
+  border-top: 1px solid var(--line-neutral);
+}
+
+.account-delete-button {
+  width: 100%;
+  background: transparent;
+  border: 1px solid var(--color-gold-dim);
+  color: var(--color-gold);
+  font-family: var(--font-label);
+  font-size: var(--fs-caption);
+  letter-spacing: var(--letter-spacing-label);
+  text-transform: uppercase;
+  padding: var(--space-sm);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: box-shadow 0.2s ease;
+}
+
+.account-delete-button:hover,
+.account-delete-button:focus-visible {
+  box-shadow: var(--glow-gold);
+  outline: none;
+}
+
+/* ===== 홈 화면 로그인 상태 표시 ===== */
+.auth-status-bar {
+  position: absolute;
+  top: var(--space-sm);
+  right: var(--space-sm);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--line-neutral);
+  border-radius: var(--radius-pill);
+  padding: 4px;
+  font-family: var(--font-label);
+  font-size: var(--fs-caption);
+}
+
+.auth-status-bar button {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font: inherit;
+  padding: 4px 6px;
+  border-radius: var(--radius-pill);
+  transition: color 0.2s ease, background 0.2s ease;
+}
+
+.auth-status-bar button:hover,
+.auth-status-bar button:focus-visible {
+  color: var(--color-teal);
+  background: rgba(45, 212, 167, 0.08);
+  outline: none;
+}
+
+.auth-status-avatar {
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-pill);
+  background: var(--color-teal-dim);
+  color: var(--color-white);
+  font-size: 11px;
+  font-weight: var(--fw-heading);
+}
+
+.auth-status-login {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}

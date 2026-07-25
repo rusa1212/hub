@@ -2,14 +2,15 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { createSession, sendMessage, transcribeAudio, synthesizeSpeech } from './api';
 import { blobToWav } from './audioUtils';
+import { useAuth } from './AuthContext';
+import { useSettings } from './SettingsContext';
+import AuthScreen from './AuthScreen';
+import HistoryScreen from './HistoryScreen';
+import SettingsScreen from './SettingsScreen';
+import { SITUATIONS } from './situations';
 import './AirPodsLog.css';
-
-const SITUATIONS = [
-  { id: 'studying', emoji: '📚', label: '공부 중' },
-  { id: 'exercising', emoji: '🏃', label: '운동 중' },
-  { id: 'sleeping', emoji: '🌙', label: '자기 전' },
-  { id: null, emoji: '💬', label: '그냥 대화' },
-];
+import './Auth.css';
+import './Settings.css';
 
 const SITUATION_GREETINGS = {
   studying: '공부 중이구나, 방해되지 않게 조용히 있을게. 필요할 때 편하게 불러줘.',
@@ -19,8 +20,12 @@ const SITUATION_GREETINGS = {
 };
 
 // 무음 감지(VAD) 튜닝 값 — 환경/마이크에 따라 조정 필요
-const SILENCE_THRESHOLD = 10; // 볼륨 임계값 (0~128)
+const SILENCE_THRESHOLD = 10; // 볼륨 임계값 (0~128), "발화가 끝났다"고 판단하는 기준이라 다소 보수적으로 높게 잡음
 const SILENCE_DURATION_MS = 1500; // 발화 중 이만큼 무음이 지속되면 자동 종료
+// STT를 호출할지 말지 거르는 용도로만 쓰는 훨씬 낮은 기준. SILENCE_THRESHOLD와 같은 값을 쓰면
+// 마이크 입력 레벨이 낮은 환경/기기에서 실제로 말을 해도 "소리가 감지되지 않음"으로 오판해
+// STT 자체를 호출 안 하는 문제가 생길 수 있어 분리함 (완전한 디지털 무음만 걸러내는 게 목적).
+const MIN_SOUND_THRESHOLD = 3;
 
 // STT/LLM/TTS 중 하나가 응답 없이 멈추는 상황을 대비한 타임아웃
 const PROCESSING_TIMEOUT_MS = 20000;
@@ -44,6 +49,8 @@ function withTimeout(promise, ms, timeoutMessage) {
 export default function AirPodsLog() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { user, signOut } = useAuth();
+  const { voice, speed, volume } = useSettings();
   // 대화 기록을 저장하는 배열 (API 연동 시 이 배열을 통째로 LLM에 보냄)
   const [messages, setMessages] = useState([]);
   const [inputValue, setInputValue] = useState('');
@@ -74,6 +81,10 @@ export default function AirPodsLog() {
   const conversationStateRef = useRef('idle');
   // 녹음이 stop()될 때 그 결과를 실제로 처리할지(process) 그냥 버릴지(discard) 구분
   const pendingActionRef = useRef('process');
+  // 이번 녹음에서 SILENCE_THRESHOLD를 넘는 실제 발화가 한 번이라도 감지됐는지. false인 채로
+  // 끝나면(무음/배경소음만 녹음됨) STT를 호출하지 않음 — LLM 기반 STT는 무음에도 그럴듯한
+  // 문장을 지어내는(hallucination) 경향이 있어, 애초에 보내지 않는 게 유일한 확실한 방어.
+  const speechDetectedRef = useRef(false);
   // 대화 루프(SPEAKING → LISTENING 자동 전환)가 살아있는지. 마이크 권한이 없으면 false로 두고 텍스트 전용으로 동작.
   const conversationActiveRef = useRef(false);
   // 현재 세션이 아직 유효한지("대화 종료"를 누르지 않았는지). 이게 false면 처리 중이던
@@ -223,6 +234,12 @@ export default function AirPodsLog() {
       const avgAmplitude =
         dataArray.reduce((sum, v) => sum + Math.abs(v - 128), 0) / dataArray.length;
 
+      // phase(발화 시작/자동 종료 판단)와 별개로, 아주 낮은 기준으로 "이번 녹음에 소리가
+      // 조금이라도 있었는지"만 계속 갱신 — SILENCE_THRESHOLD를 못 넘는 조용한 발화도 STT는 타게 함
+      if (avgAmplitude > MIN_SOUND_THRESHOLD) {
+        speechDetectedRef.current = true;
+      }
+
       if (phase === 'waiting') {
         if (avgAmplitude > SILENCE_THRESHOLD) {
           phase = 'active';
@@ -257,6 +274,28 @@ export default function AirPodsLog() {
     micAnalyserRef.current = null;
   };
 
+  // 녹음/재생 중이던 오디오 파이프라인과 메시지 목록을 정리. "종료" 버튼뿐 아니라 새 페르소나를
+  // 시작할 때도 호출해서, 뒤로가기 등으로 "종료"를 거치지 않고 이전 세션이 남아있던 경우에도
+  // 이전 대화 내용이나 마이크 녹음이 새 세션으로 이어지지 않도록 함.
+  const resetConversationPipeline = () => {
+    if (mediaRecorderRef.current?.state === 'recording') {
+      pendingActionRef.current = 'discard';
+      mediaRecorderRef.current.stop();
+    }
+    stopSilenceWatcher();
+
+    if (audioPlayerRef.current) {
+      audioPlayerRef.current.onended = null;
+      audioPlayerRef.current.onerror = null;
+      audioPlayerRef.current.pause();
+    }
+
+    sessionIdRef.current = null;
+    setSessionId(null);
+    setMessages([]);
+    setInputValue('');
+  };
+
   // 무음 감지(자동) 또는 마이크 버튼(수동 폴백) 둘 다 이 경로로 녹음을 종료하고 처리로 넘김
   const stopListeningAndProcess = () => {
     if (mediaRecorderRef.current?.state !== 'recording') return;
@@ -277,6 +316,7 @@ export default function AirPodsLog() {
       const recorder = new MediaRecorder(stream);
       audioChunksRef.current = [];
       pendingActionRef.current = 'process';
+      speechDetectedRef.current = false;
 
       recorder.ondataavailable = (e) => {
         if (e.data.size > 0) audioChunksRef.current.push(e.data);
@@ -288,7 +328,11 @@ export default function AirPodsLog() {
         const action = pendingActionRef.current;
         const audioBlob = new Blob(audioChunksRef.current, { type: recorder.mimeType || 'audio/webm' });
         if (action === 'process') {
-          processVoiceMessage(audioBlob);
+          if (speechDetectedRef.current) {
+            processVoiceMessage(audioBlob);
+          } else {
+            handleNoSpeechDetected();
+          }
         }
         // action === 'discard': 대화 종료/텍스트 전송으로 취소된 녹음이므로 버림
       };
@@ -345,7 +389,7 @@ export default function AirPodsLog() {
       (async () => {
         try {
           const audioBlob = await withTimeout(
-            synthesizeSpeech(text),
+            synthesizeSpeech(text, voice),
             PROCESSING_TIMEOUT_MS,
             'TTS 응답 시간 초과'
           );
@@ -362,6 +406,8 @@ export default function AirPodsLog() {
           player.onended = finish;
           player.onerror = finish;
           player.src = url;
+          player.playbackRate = speed;
+          player.volume = volume;
           await player.play();
         } catch (err) {
           console.error('TTS 재생 실패:', err);
@@ -383,6 +429,7 @@ export default function AirPodsLog() {
   };
 
   const handleSelectSituation = async (situationId) => {
+    resetConversationPipeline(); // 이전 페르소나의 대화/녹음이 남아있다면 정리하고 새로 시작
     navigate('/chat');
     sessionAliveRef.current = true;
     conversationActiveRef.current = true;
@@ -487,21 +534,37 @@ export default function AirPodsLog() {
     }
 
     let replyText;
+    let transcript;
     try {
       const wavBlob = await blobToWav(audioBlob);
-      const { transcript } = await withTimeout(
+      ({ transcript } = await withTimeout(
         transcribeAudio(wavBlob),
         PROCESSING_TIMEOUT_MS,
         'STT 응답 시간 초과'
-      );
-      if (!sessionAliveRef.current) return; // STT 대기 중 "종료"를 눌렀으면 반영하지 않음
+      ));
+    } catch (err) {
+      console.error('STT 처리 실패:', err);
+      if (!sessionAliveRef.current) return;
+      // STT 호출 자체가 실패한 경우(네트워크, 타임아웃, API 한도 초과 등)는
+      // "못 알아들었다"가 아니라 텍스트 경로(handleSendMessage)와 동일하게 안내한다.
+      replyText = '지금은 응답을 받아올 수 없어요. 잠시 후 다시 시도해주세요.';
+      setMessages((prev) => [...prev, { id: Date.now() + 1, sender: 'agent', text: replyText }]);
+      await speakThenContinue(replyText);
+      return;
+    }
+    if (!sessionAliveRef.current) return; // STT 대기 중 "종료"를 눌렀으면 반영하지 않음
 
-      if (!transcript?.trim()) {
-        throw new Error('빈 STT 결과');
-      }
+    if (!transcript?.trim()) {
+      // STT 호출은 성공했지만 결과가 빈 경우: 진짜로 알아듣지 못한 케이스
+      replyText = '음성을 알아듣지 못했어요. 다시 한번 말씀해주시겠어요?';
+      setMessages((prev) => [...prev, { id: Date.now() + 1, sender: 'agent', text: replyText }]);
+      await speakThenContinue(replyText);
+      return;
+    }
 
-      setMessages((prev) => [...prev, { id: Date.now(), sender: 'user', text: transcript }]);
+    setMessages((prev) => [...prev, { id: Date.now(), sender: 'user', text: transcript }]);
 
+    try {
       const { reply } = await withTimeout(
         sendMessage(sessionIdRef.current, transcript),
         PROCESSING_TIMEOUT_MS,
@@ -511,13 +574,30 @@ export default function AirPodsLog() {
       replyText = reply;
       setMessages((prev) => [...prev, { id: Date.now() + 1, sender: 'agent', text: reply }]);
     } catch (err) {
-      console.error('음성 메시지 처리 실패:', err);
+      console.error('메시지 전송 실패:', err);
       if (!sessionAliveRef.current) return;
-      replyText = '음성을 알아듣지 못했어요. 다시 한번 말씀해주시겠어요?';
+      replyText = '지금은 응답을 받아올 수 없어요. 잠시 후 다시 시도해주세요.';
       setMessages((prev) => [...prev, { id: Date.now() + 1, sender: 'agent', text: replyText }]);
     }
 
     await speakThenContinue(replyText);
+  };
+
+  // 녹음 내내 SILENCE_THRESHOLD를 넘는 소리가 한 번도 없었던 경우: STT를 아예 호출하지 않고
+  // (LLM 기반 STT는 무음에도 그럴듯한 문장을 지어내는 경향이 있어 애초에 보내지 않는 게 안전함)
+  // 텍스트 안내만 보여준 뒤 대화가 살아있으면 바로 다시 LISTENING으로 돌아감. TTS는 쓰지 않아
+  // 하루 제한이 있는 음성 합성 quota를 소모하지 않는다.
+  const handleNoSpeechDetected = () => {
+    if (!sessionAliveRef.current) return;
+    setMessages((prev) => [
+      ...prev,
+      { id: Date.now(), sender: 'agent', text: '🔇 소리가 잘 안 들렸어요. 다시 말씀해주시겠어요?' },
+    ]);
+    if (conversationActiveRef.current) {
+      startListening();
+    } else {
+      setConversationState('idle');
+    }
   };
 
   // 자동 무음 감지가 오작동할 때를 위한 수동 폴백: LISTENING 중에만 "말 다 했어요"로 즉시 종료
@@ -530,29 +610,31 @@ export default function AirPodsLog() {
   const handleEndConversation = () => {
     sessionAliveRef.current = false;
     conversationActiveRef.current = false;
-
-    if (mediaRecorderRef.current?.state === 'recording') {
-      pendingActionRef.current = 'discard';
-      mediaRecorderRef.current.stop();
-    }
-    stopSilenceWatcher();
-
-    if (audioPlayerRef.current) {
-      audioPlayerRef.current.onended = null;
-      audioPlayerRef.current.onerror = null;
-      audioPlayerRef.current.pause();
-    }
-
+    resetConversationPipeline();
     setConversationState('idle');
-    sessionIdRef.current = null;
-    setSessionId(null);
-    setMessages([]);
-    setInputValue('');
     navigate('/');
   };
 
   const HomeScreen = (
     <div className="home-screen">
+      <div className="auth-status-bar">
+        {user ? (
+          <>
+            <span className="auth-status-avatar" title={user.email} aria-hidden="true">
+              {user.email?.[0]?.toUpperCase() ?? '?'}
+            </span>
+            <button type="button" onClick={() => navigate('/history')}>기록 보기</button>
+            <button type="button" onClick={signOut}>로그아웃</button>
+          </>
+        ) : (
+          <button type="button" className="auth-status-login" onClick={() => navigate('/login')}>
+            <span aria-hidden="true">🔑</span> 로그인
+          </button>
+        )}
+        <button type="button" onClick={() => navigate('/settings')} title="설정" aria-label="설정">
+          <span aria-hidden="true">⚙️</span>
+        </button>
+      </div>
       <div className="home-icon">🎧</div>
       <h1 className="home-title">AirPods Log</h1>
       <p className="home-subtitle">상황을 기록하면, 당신만의 에이전트가<br/>오디오로 대화를 이어갑니다.</p>
@@ -598,9 +680,14 @@ export default function AirPodsLog() {
           ></span>
           <span className="status-text">{statusText}</span>
         </div>
-        <button className="end-button" onClick={handleEndConversation} title="대화 종료">
-          종료
-        </button>
+        <div className="chat-header-actions">
+          <button className="settings-button" onClick={() => navigate('/settings')} title="설정" aria-label="설정">
+            ⚙️
+          </button>
+          <button className="end-button" onClick={handleEndConversation} title="대화 종료">
+            종료
+          </button>
+        </div>
       </header>
 
       {/* 음성 파형: 듣는 중엔 마이크 입력, 말하는 중엔 TTS 응답을 시각화 */}
@@ -678,6 +765,9 @@ export default function AirPodsLog() {
           <Route path="/" element={HomeScreen} />
           <Route path="/situation" element={SituationScreen} />
           <Route path="/chat" element={ChatScreen} />
+          <Route path="/login" element={<AuthScreen />} />
+          <Route path="/history" element={<HistoryScreen />} />
+          <Route path="/settings" element={<SettingsScreen />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </div>

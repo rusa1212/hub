@@ -2,9 +2,24 @@ import { GoogleGenAI, Modality } from '@google/genai';
 import { pcmToWav } from '../utils/wav.js';
 
 const MODEL = 'gemini-flash-latest';
-const STT_PROMPT = '이 오디오에 담긴 말을 그대로 받아써줘. 다른 설명이나 문장부호 보정 없이, 들리는 텍스트만 출력해.';
+const STT_PROMPT = `이 오디오에 실제로 담긴 말을 있는 그대로 받아써줘.
+- 다른 설명이나 문장부호 보정 없이, 들리는 텍스트만 출력해.
+- 절대 추측하거나 지어내지 마. 실제로 들리지 않는 단어나 문장을 만들어내면 안 돼.
+- 무음이거나, 배경 소음뿐이거나, 말이 있어도 알아듣기 어렵다면 아무 설명 없이 빈 문자열만 출력해.`;
 const TTS_MODEL = 'gemini-2.5-flash-preview-tts';
 const TTS_VOICE = process.env.GEMINI_TTS_VOICE || 'Kore';
+
+// 설정 화면(음성 선택)에서 고를 수 있는 Gemini TTS voice 목록 (front/src/voices.js와 동기화 유지)
+export const AVAILABLE_TTS_VOICES = [
+  'Kore',
+  'Puck',
+  'Charon',
+  'Fenrir',
+  'Aoede',
+  'Leda',
+  'Achird',
+  'Sulafat',
+];
 
 const SYSTEM_INSTRUCTION = `너는 "AirPods Log"라는 오디오 전용 에이전트야. 사용자는 화면을 보지 않고 귀로만 네 답변을 듣는다.
 
@@ -85,15 +100,16 @@ export async function transcribeAudio(audioBuffer, mimeType) {
   return response.text?.trim() ?? '';
 }
 
-export async function synthesizeSpeech(text) {
+export async function synthesizeSpeech(text, voice) {
   const ai = getClient();
+  const voiceName = AVAILABLE_TTS_VOICES.includes(voice) ? voice : TTS_VOICE;
   const response = await ai.models.generateContent({
     model: TTS_MODEL,
     contents: [{ role: 'user', parts: [{ text }] }],
     config: {
       responseModalities: [Modality.AUDIO],
       speechConfig: {
-        voiceConfig: { prebuiltVoiceConfig: { voiceName: TTS_VOICE } },
+        voiceConfig: { prebuiltVoiceConfig: { voiceName } },
       },
     },
   });

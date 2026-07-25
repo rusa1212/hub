@@ -1,0 +1,124 @@
+/* ===== 설정 화면 ===== */
+.settings-screen {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: var(--space-md);
+  gap: var(--space-lg);
+  overflow-y: auto;
+  animation: auth-fade-in 0.25s ease;
+}
+
+.settings-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  text-align: left;
+}
+
+.settings-section-title {
+  font-family: var(--font-heading);
+  font-weight: var(--fw-heading);
+  font-size: var(--fs-body);
+  color: var(--color-white);
+  margin: 0;
+}
+
+.settings-row-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+}
+
+.settings-value {
+  font-family: var(--font-label);
+  font-size: var(--fs-caption);
+  color: var(--color-teal);
+}
+
+.settings-select {
+  width: 100%;
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-teal-dim);
+  border-radius: var(--radius-sm);
+  padding: var(--space-sm) var(--space-md);
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  font-size: var(--fs-body);
+}
+
+.settings-select:focus-visible {
+  outline: none;
+  border-color: var(--color-teal);
+  box-shadow: var(--glow-teal);
+}
+
+.settings-slider {
+  width: 100%;
+  accent-color: var(--color-teal);
+  cursor: pointer;
+}
+
+.settings-policy-text,
+.settings-hint-text {
+  font-family: var(--font-body);
+  font-size: var(--fs-caption);
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin: 0;
+}
+
+.settings-footer {
+  margin-top: auto;
+  padding-top: var(--space-md);
+  border-top: 1px solid var(--line-neutral);
+}
+
+.settings-logout-button {
+  width: 100%;
+  background: transparent;
+  border: 1px solid var(--line-neutral);
+  color: var(--text-secondary);
+  font-family: var(--font-label);
+  font-size: var(--fs-caption);
+  letter-spacing: var(--letter-spacing-label);
+  text-transform: uppercase;
+  padding: var(--space-sm);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: border-color 0.2s ease, color 0.2s ease;
+}
+
+.settings-logout-button:hover,
+.settings-logout-button:focus-visible {
+  border-color: var(--color-teal);
+  color: var(--color-teal);
+  outline: none;
+}
+
+/* ===== 채팅 헤더 내 설정 버튼 ===== */
+.chat-header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex-shrink: 0;
+}
+
+.settings-button {
+  background: transparent;
+  border: 1px solid var(--line-neutral);
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.settings-button:hover,
+.settings-button:focus-visible {
+  border-color: var(--color-teal);
+  color: var(--color-teal);
+  outline: none;
+}
