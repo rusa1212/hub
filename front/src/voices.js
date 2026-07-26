@@ -12,3 +12,6 @@ export const VOICES = [
 ];
 
 export const DEFAULT_VOICE = 'Kore';
+
+// 음성 미리듣기용 고정 샘플 문구 (LLM을 거치지 않고 TTS만 즉시 호출해 지연시간 최소화)
+export const PREVIEW_TEXT = '안녕, 오늘 하루 어땠어? 편하게 이야기해줘.';

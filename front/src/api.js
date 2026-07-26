@@ -72,6 +72,20 @@ export function transcribeAudio(audioBlob) {
   return request('/api/stt', { method: 'POST', body: formData });
 }
 
+export async function getMySettings() {
+  return request('/api/settings', {
+    headers: await authHeaders(),
+  });
+}
+
+export async function updateMySettings(voice) {
+  return request('/api/settings', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
+    body: JSON.stringify({ voice }),
+  });
+}
+
 export async function synthesizeSpeech(text, voice) {
   const res = await fetch('/api/tts', {
     method: 'POST',

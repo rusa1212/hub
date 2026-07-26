@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from './AuthContext';
 import { useSettings } from './SettingsContext';
-import { deleteMySessions } from './api';
-import { VOICES } from './voices';
+import { deleteMySessions, synthesizeSpeech } from './api';
+import { VOICES, PREVIEW_TEXT } from './voices';
 import './Auth.css';
 import './Settings.css';
 
@@ -14,6 +14,39 @@ export default function SettingsScreen() {
   const [deleting, setDeleting] = useState(false);
   const [deleteMessage, setDeleteMessage] = useState('');
   const [deleteError, setDeleteError] = useState('');
+  const [previewingVoice, setPreviewingVoice] = useState(null);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const previewAudioRef = useRef(null);
+  const previewUrlRef = useRef(null);
+  const selectedVoice = VOICES.find((v) => v.id === voice) ?? VOICES[0];
+
+  useEffect(() => {
+    return () => {
+      previewAudioRef.current?.pause();
+      if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
+    };
+  }, []);
+
+  // 미리듣기 버튼 연타 방지: 한 번에 하나의 미리듣기만 재생되도록 로딩/재생 중엔 무시
+  const handlePreview = async (voiceId) => {
+    if (previewingVoice) return;
+    setPreviewingVoice(voiceId);
+    try {
+      const audioBlob = await synthesizeSpeech(PREVIEW_TEXT, voiceId);
+      const url = URL.createObjectURL(audioBlob);
+      if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
+      previewUrlRef.current = url;
+      const audio = previewAudioRef.current ?? new Audio();
+      previewAudioRef.current = audio;
+      audio.onended = () => setPreviewingVoice(null);
+      audio.onerror = () => setPreviewingVoice(null);
+      audio.src = url;
+      await audio.play();
+    } catch (err) {
+      console.error('음성 미리듣기 실패:', err);
+      setPreviewingVoice(null);
+    }
+  };
 
   const handleDeleteHistory = async () => {
     if (!window.confirm('저장된 모든 대화 기록을 삭제할까요? 되돌릴 수 없어요.')) return;
@@ -47,17 +80,73 @@ export default function SettingsScreen() {
 
       <section className="settings-section">
         <h3 className="settings-section-title">음성 선택</h3>
-        <select
-          className="settings-select"
-          value={voice}
-          onChange={(e) => setVoice(e.target.value)}
-        >
-          {VOICES.map((v) => (
-            <option key={v.id} value={v.id}>
-              {v.label} · {v.description}
-            </option>
-          ))}
-        </select>
+        {!pickerOpen ? (
+          <div className="voice-current-row">
+            <span className="voice-current-info">
+              <span className="voice-card-label">{selectedVoice.label}</span>
+              <span className="voice-card-desc">{selectedVoice.description}</span>
+            </span>
+            <button
+              type="button"
+              className="voice-picker-toggle"
+              onClick={() => setPickerOpen(true)}
+            >
+              음성 선택
+            </button>
+          </div>
+        ) : (
+          <div className="voice-card-list" role="radiogroup" aria-label="음성 선택">
+            {VOICES.map((v) => {
+              const selected = voice === v.id;
+              const isPreviewing = previewingVoice === v.id;
+              return (
+                <div
+                  key={v.id}
+                  className={`voice-card${selected ? ' voice-card--selected' : ''}`}
+                  role="radio"
+                  aria-checked={selected}
+                  tabIndex={0}
+                  onClick={() => {
+                    setVoice(v.id);
+                    setPickerOpen(false);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      setVoice(v.id);
+                      setPickerOpen(false);
+                    }
+                  }}
+                >
+                  <span className="voice-card-radio" aria-hidden="true" />
+                  <span className="voice-card-info">
+                    <span className="voice-card-label">{v.label}</span>
+                    <span className="voice-card-desc">{v.description}</span>
+                  </span>
+                  <button
+                    type="button"
+                    className="voice-preview-button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handlePreview(v.id);
+                    }}
+                    disabled={previewingVoice !== null}
+                    aria-label={`${v.label} 미리듣기`}
+                  >
+                    {isPreviewing ? '재생 중…' : '▶ 미리듣기'}
+                  </button>
+                </div>
+              );
+            })}
+            <button
+              type="button"
+              className="voice-picker-close"
+              onClick={() => setPickerOpen(false)}
+            >
+              닫기
+            </button>
+          </div>
+        )}
       </section>
 
       <section className="settings-section">
@@ -99,7 +188,7 @@ export default function SettingsScreen() {
           <br />
           대화 기록은 로그인한 경우에만 서버에 저장되며, 로그인 전 대화는 어디에도 기록되지 않아요.
           <br />
-          위의 음성 선택 · 속도 · 볼륨 설정은 서버로 전송되지 않고 이 기기에만 저장돼요.
+          음성 선택은 로그인 시 서버에도 저장되어 다른 기기에서도 유지돼요. 속도 · 볼륨 설정은 서버로 전송되지 않고 이 기기에만 저장돼요.
         </p>
       </section>
 

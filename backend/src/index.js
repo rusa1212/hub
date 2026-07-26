@@ -15,6 +15,7 @@ import accountRouter from './routes/account.js';
 import chatRouter from './routes/chat.js';
 import sttRouter from './routes/stt.js';
 import ttsRouter from './routes/tts.js';
+import settingsRouter from './routes/settings.js';
 import { errorHandler } from './middleware/errorHandler.js';
 
 const app = express();
@@ -33,6 +34,7 @@ app.use('/api/account', accountRouter);
 app.use('/api/chat', chatRouter);
 app.use('/api/stt', sttRouter);
 app.use('/api/tts', ttsRouter);
+app.use('/api/settings', settingsRouter);
 
 app.use(errorHandler);
 
