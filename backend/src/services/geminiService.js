@@ -78,7 +78,10 @@ export async function generateReply(history, situation) {
   const response = await ai.models.generateContent({
     model: MODEL,
     contents: history,
-    config: { systemInstruction: buildSystemInstruction(situation) },
+    config: {
+      systemInstruction: buildSystemInstruction(situation),
+      maxOutputTokens: 300,
+    },
   });
   return response.text;
 }
