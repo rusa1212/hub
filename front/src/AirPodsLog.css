@@ -24,6 +24,8 @@
 /* ===== 홈 화면 ===== */
 .home-screen {
   position: relative;
+  isolation: isolate; /* 아래 glow ::before가 z-index:-1로 콘텐츠 뒤에 확실히 깔리도록 로컬 스태킹 컨텍스트 생성 */
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -33,9 +35,37 @@
   padding: var(--space-xl) var(--space-lg);
 }
 
+/* 아이콘 뒤에서 은은하게 숨쉬는 글로우 — 화면에 깊이감/생동감을 줌 */
+.home-screen::before {
+  content: '';
+  position: absolute;
+  top: 30%;
+  left: 50%;
+  width: 280px;
+  height: 280px;
+  z-index: -1;
+  background: radial-gradient(circle, rgba(45, 212, 167, 0.32) 0%, rgba(45, 212, 167, 0.1) 45%, transparent 72%);
+  filter: blur(16px);
+  transform: translate(-50%, -50%) scale(1);
+  animation: home-glow-pulse 4.5s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes home-glow-pulse {
+  0%, 100% { opacity: 0.55; transform: translate(-50%, -50%) scale(1); }
+  50% { opacity: 1; transform: translate(-50%, -50%) scale(1.18); }
+}
+
 .home-icon {
   font-size: 56px;
   margin-bottom: var(--space-md);
+  filter: drop-shadow(0 10px 18px rgba(45, 212, 167, 0.35));
+  animation: home-icon-float 3.4s ease-in-out infinite;
+}
+
+@keyframes home-icon-float {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-9px) rotate(-3deg); }
 }
 
 .home-title {
@@ -45,6 +75,7 @@
   letter-spacing: var(--letter-spacing-heading);
   text-transform: uppercase;
   color: var(--color-white);
+  text-shadow: 0 2px 20px rgba(45, 212, 167, 0.25);
   margin: 0 0 var(--space-md);
 }
 
@@ -56,8 +87,50 @@
   margin: 0 0 var(--space-xl);
 }
 
+/* 홈 화면의 CTA만 입체적인 눌림감을 갖도록 스코프 (다른 화면의 .btn-primary는 기존 플랫 스타일 유지) */
+.home-screen .btn-primary {
+  background: linear-gradient(180deg, #4bebc3 0%, var(--color-teal) 55%, #1c9e7c 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.4),
+    inset 0 -3px 4px rgba(0, 0, 0, 0.2),
+    0 3px 0 var(--color-teal-dim),
+    0 12px 24px rgba(45, 212, 167, 0.3);
+  transform: translateY(0);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.2s ease;
+}
+
+.home-screen .btn-primary:hover,
+.home-screen .btn-primary:focus-visible {
+  transform: translateY(-3px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.45),
+    inset 0 -3px 4px rgba(0, 0, 0, 0.2),
+    0 6px 0 var(--color-teal-dim),
+    0 18px 32px rgba(45, 212, 167, 0.4);
+  outline: none;
+}
+
+.home-screen .btn-primary:active {
+  transform: translateY(1px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.3),
+    inset 0 -2px 3px rgba(0, 0, 0, 0.25),
+    0 1px 0 var(--color-teal-dim),
+    0 6px 14px rgba(45, 212, 167, 0.25);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-screen::before,
+  .home-icon {
+    animation: none;
+  }
+}
+
 /* ===== 상황 선택 화면 ===== */
 .situation-screen {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -65,6 +138,21 @@
   height: 100%;
   text-align: center;
   padding: var(--space-xl) var(--space-lg);
+}
+
+.situation-screen::before {
+  content: '';
+  position: absolute;
+  top: 6%;
+  left: 50%;
+  width: 260px;
+  height: 200px;
+  z-index: -1;
+  background: radial-gradient(circle, rgba(45, 212, 167, 0.22) 0%, rgba(45, 212, 167, 0.06) 45%, transparent 72%);
+  filter: blur(18px);
+  transform: translate(-50%, -50%);
+  animation: home-glow-pulse 4.5s ease-in-out infinite;
+  pointer-events: none;
 }
 
 .situation-title {
@@ -94,24 +182,69 @@
   flex-direction: column;
   align-items: center;
   gap: var(--space-sm);
-  background: var(--color-bg-elevated);
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0) 55%), var(--color-bg-elevated);
   border: 1px solid var(--color-teal-dim);
   border-radius: var(--radius-sm);
   padding: var(--space-lg) var(--space-sm);
   color: var(--text-primary);
   cursor: pointer;
-  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+  transform: translateY(0);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 1px 0 rgba(0, 0, 0, 0.4),
+    0 8px 16px rgba(0, 0, 0, 0.35);
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+  animation: situation-pop-in 0.4s ease backwards;
+}
+
+.situation-option:nth-child(1) { animation-delay: 0.02s; }
+.situation-option:nth-child(2) { animation-delay: 0.08s; }
+.situation-option:nth-child(3) { animation-delay: 0.14s; }
+.situation-option:nth-child(4) { animation-delay: 0.2s; }
+.situation-option:nth-child(5) { animation-delay: 0.26s; }
+.situation-option:nth-child(6) { animation-delay: 0.32s; }
+
+@keyframes situation-pop-in {
+  from { opacity: 0; transform: translateY(10px) scale(0.96); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 .situation-option:hover,
 .situation-option:focus-visible {
   border-color: var(--color-teal);
-  box-shadow: var(--glow-teal);
+  transform: translateY(-4px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 1px 0 rgba(0, 0, 0, 0.4),
+    0 16px 28px rgba(0, 0, 0, 0.4),
+    var(--glow-teal);
   outline: none;
+}
+
+.situation-option:active {
+  transform: translateY(-1px) scale(0.98);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 4px 10px rgba(0, 0, 0, 0.35);
 }
 
 .situation-option-emoji {
   font-size: 28px;
+  transition: transform 0.18s ease;
+}
+
+.situation-option:hover .situation-option-emoji,
+.situation-option:focus-visible .situation-option-emoji {
+  transform: translateY(-2px) scale(1.12);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .situation-screen::before {
+    animation: none;
+  }
+  .situation-option {
+    animation: none;
+  }
 }
 
 .situation-option-label {
