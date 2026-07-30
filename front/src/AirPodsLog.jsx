@@ -1,13 +1,21 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
-import { createSession, sendMessage, transcribeAudio, synthesizeSpeech } from './api';
+import {
+  createSession,
+  sendMessage,
+  transcribeAudio,
+  synthesizeSpeech,
+  summarizeSession,
+  getMySessions,
+  getSessionDetail,
+} from './api';
 import { blobToWav } from './audioUtils';
 import { useAuth } from './AuthContext';
 import { useSettings } from './SettingsContext';
 import AuthScreen from './AuthScreen';
 import HistoryScreen from './HistoryScreen';
 import SettingsScreen from './SettingsScreen';
-import { SITUATIONS } from './situations';
+import { SITUATIONS, SITUATION_META_BY_ID } from './situations';
 import './AirPodsLog.css';
 import './Auth.css';
 import './Settings.css';
@@ -73,6 +81,8 @@ export default function AirPodsLog() {
   const [conversationState, setConversationState] = useState('idle');
   // STT/TTS 사용 한도 초과로 음성 기능 전체(마이크 입력 + 음성 응답)를 끈 상태인지
   const [voiceDisabled, setVoiceDisabled] = useState(isVoiceQuotaCooldownActive);
+  // 홈 화면의 "지난 대화 이어하기" 카드에 띄울, 로그인 사용자의 가장 최근 대화(메시지가 실제로 오간 세션)
+  const [lastSession, setLastSession] = useState(null);
   // listening 상태의 서브 단계: waiting(발화 대기, 무한정) | active(발화 중, 무음 지속시간 감지 시작)
   const [listeningPhase, setListeningPhase] = useState('waiting');
 
@@ -230,6 +240,21 @@ export default function AirPodsLog() {
   useEffect(() => {
     setSidebarOpen(false);
   }, [location.pathname]);
+
+  // 홈 화면에 들어올 때마다(로그인 상태라면) 이어할 수 있는 가장 최근 대화를 조회.
+  // last_active_at === created_at인 세션은 메시지가 한 번도 오간 적 없는 빈 세션이라 건너뜀.
+  useEffect(() => {
+    if (location.pathname !== '/' || !user) {
+      setLastSession(null);
+      return;
+    }
+    getMySessions()
+      .then(({ sessions }) => {
+        const resumable = sessions.find((s) => s.last_active_at !== s.created_at);
+        setLastSession(resumable ?? null);
+      })
+      .catch((err) => console.error('최근 대화 조회 실패:', err));
+  }, [location.pathname, user]);
 
   const handleStart = () => {
     navigate('/situation');
@@ -528,6 +553,57 @@ export default function AirPodsLog() {
     }
   };
 
+  // 홈 화면의 "지난 대화 이어하기" 카드: 새 세션을 만들지 않고 기존 세션 히스토리를 불러와 이어감.
+  // 과거 메시지들은 다시 TTS로 들려주지 않고(불필요한 음성 quota 소모 방지) 텍스트로만 복원한 뒤,
+  // 바로 LISTENING(또는 텍스트 폴백)으로 넘어가 사용자가 곧장 이어 말할 수 있게 한다.
+  const handleResumeSession = async (session) => {
+    resetConversationPipeline(); // 이전 페르소나의 대화/녹음이 남아있다면 정리하고 새로 시작
+    navigate('/chat');
+    sessionAliveRef.current = true;
+    conversationActiveRef.current = true;
+    setConversationState('processing');
+
+    if (voiceDisabledRef.current) {
+      conversationActiveRef.current = false;
+    } else {
+      try {
+        const permStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        permStream.getTracks().forEach((track) => track.stop());
+      } catch (err) {
+        console.error('마이크 권한 확보 실패:', err);
+        conversationActiveRef.current = false; // 텍스트 전용 폴백으로 진행
+      }
+    }
+    if (!sessionAliveRef.current) return; // 권한 요청 중 "종료"를 눌렀으면 중단
+
+    try {
+      const { history } = await getSessionDetail(session.id);
+      if (!sessionAliveRef.current) return; // 조회 중 "종료"를 눌렀으면 중단
+      sessionIdRef.current = session.id;
+      setSessionId(session.id);
+      setMessages(
+        history.map((msg, i) => ({
+          id: Date.now() + i,
+          sender: msg.role === 'user' ? 'user' : 'agent',
+          text: msg.parts?.[0]?.text ?? '',
+        }))
+      );
+      if (conversationActiveRef.current) {
+        startListening();
+      } else {
+        setConversationState('idle');
+      }
+    } catch (err) {
+      console.error('대화 이어하기 실패:', err);
+      if (!sessionAliveRef.current) return;
+      conversationActiveRef.current = false;
+      setConversationState('idle');
+      setMessages([
+        { id: Date.now(), sender: 'agent', text: '이전 대화를 불러오지 못했어요. 새로고침 후 다시 시도해주세요.' },
+      ]);
+    }
+  };
+
   // 텍스트 입력은 LISTENING(마이크가 배경에서 대기 중) 또는 idle(마이크 권한 없음 폴백) 상태에서만 허용
   const canType = conversationState === 'listening' || conversationState === 'idle';
 
@@ -674,6 +750,11 @@ export default function AirPodsLog() {
   const handleEndConversation = () => {
     sessionAliveRef.current = false;
     conversationActiveRef.current = false;
+    const endingSessionId = sessionIdRef.current; // resetConversationPipeline이 지우기 전에 따로 보관
+    // 로그인 사용자의 세션에 한해 기록 보기용 한 줄 요약을 백그라운드로 생성 (화면 전환을 막지 않음)
+    if (user && endingSessionId) {
+      summarizeSession(endingSessionId).catch((err) => console.error('대화 요약 생성 실패:', err));
+    }
     resetConversationPipeline();
     setConversationState('idle');
     navigate('/');
@@ -704,11 +785,36 @@ export default function AirPodsLog() {
       <button className="btn-primary" onClick={handleStart}>
         에이전트 연결하기
       </button>
+      {lastSession && (() => {
+        const meta = SITUATION_META_BY_ID[lastSession.persona_id ?? 'default'] ?? SITUATION_META_BY_ID.default;
+        return (
+          <button
+            type="button"
+            className="resume-card"
+            onClick={() => handleResumeSession(lastSession)}
+          >
+            <span className="resume-card-emoji" aria-hidden="true">{meta.emoji}</span>
+            <span className="resume-card-body">
+              <span className="resume-card-label">'{meta.label}' 대화 이어하기</span>
+              {lastSession.summary && <span className="resume-card-summary">{lastSession.summary}</span>}
+            </span>
+            <span className="resume-card-arrow" aria-hidden="true">→</span>
+          </button>
+        );
+      })()}
     </div>
   );
 
   const SituationScreen = (
     <div className="situation-screen">
+      <button
+        type="button"
+        className="hamburger-button"
+        onClick={() => setSidebarOpen(true)}
+        aria-label="메뉴 열기"
+      >
+        <span aria-hidden="true">☰</span>
+      </button>
       <h2 className="situation-title">지금 어떤 상황이야?</h2>
       <p className="situation-subtitle">상황에 맞춰 톤과 추천을 바꿀게요.</p>
       <div className="situation-options">

@@ -38,6 +38,14 @@ export async function getSessionDetail(sessionId) {
   });
 }
 
+// 대화 종료 시 호출: 로그인 사용자에 한해 한 줄 요약을 생성해 세션에 저장
+export async function summarizeSession(sessionId) {
+  return request(`/api/session/${sessionId}/summary`, {
+    method: 'POST',
+    headers: await authHeaders(),
+  });
+}
+
 export async function deleteAccount() {
   const res = await fetch('/api/account', {
     method: 'DELETE',

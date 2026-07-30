@@ -2,10 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from './AuthContext';
 import { getMySessions, getSessionDetail, deleteAccount } from './api';
-import { SITUATIONS } from './situations';
+import { SITUATION_META_BY_ID } from './situations';
 import './Auth.css';
-
-const SITUATION_META_BY_ID = Object.fromEntries(SITUATIONS.map((s) => [s.id ?? 'default', s]));
 
 function formatDate(iso) {
   return new Date(iso).toLocaleString('ko-KR', {
@@ -126,6 +124,7 @@ export default function HistoryScreen() {
                 <span className="history-item-emoji" aria-hidden="true">{meta.emoji}</span>
                 <span className="history-item-body">
                   <span className="history-item-label">{meta.label}</span>
+                  {s.summary && <span className="history-item-summary">{s.summary}</span>}
                   <span className="history-item-date">{formatDate(s.last_active_at)}</span>
                 </span>
                 <span className={`history-item-chevron ${isActive ? 'history-item-chevron--open' : ''}`} aria-hidden="true">

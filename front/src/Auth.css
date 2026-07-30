@@ -348,6 +348,15 @@
   color: var(--text-primary);
 }
 
+.history-item-summary {
+  color: var(--text-secondary);
+  font-size: var(--fs-caption);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
 .history-item-date {
   color: var(--text-muted);
   font-size: var(--fs-caption);

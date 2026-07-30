@@ -47,11 +47,17 @@ export async function getSessionsByUser(userId) {
   const supabase = getSupabase();
   const { data, error } = await supabase
     .from('sessions')
-    .select('id, persona_id, created_at, last_active_at')
+    .select('id, persona_id, created_at, last_active_at, summary')
     .eq('user_id', userId)
     .order('last_active_at', { ascending: false });
   if (error) throw error;
   return data;
+}
+
+export async function setSessionSummary(sessionId, summary) {
+  const supabase = getSupabase();
+  const { error } = await supabase.from('sessions').update({ summary }).eq('id', sessionId);
+  if (error) throw error;
 }
 
 // 로그인 사용자 전용: 본인의 세션 기록 전체 삭제 (메시지는 messages.session_id의

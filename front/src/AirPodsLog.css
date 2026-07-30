@@ -142,6 +142,64 @@
   }
 }
 
+/* ===== 지난 대화 이어하기 카드 ===== */
+.resume-card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  width: 100%;
+  margin-top: var(--space-md);
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0) 55%), var(--color-bg-elevated);
+  border: 1px solid var(--color-teal-dim);
+  border-radius: var(--radius-sm);
+  padding: var(--space-sm) var(--space-md);
+  color: var(--text-primary);
+  cursor: pointer;
+  text-align: left;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+
+.resume-card:hover,
+.resume-card:focus-visible {
+  border-color: var(--color-teal);
+  transform: translateY(-2px);
+  box-shadow: var(--glow-teal);
+  outline: none;
+}
+
+.resume-card-emoji {
+  font-size: 22px;
+  flex-shrink: 0;
+}
+
+.resume-card-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.resume-card-label {
+  font-family: var(--font-body);
+  font-size: var(--fs-body);
+  color: var(--text-primary);
+}
+
+.resume-card-summary {
+  font-size: var(--fs-caption);
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.resume-card-arrow {
+  flex-shrink: 0;
+  color: var(--color-teal);
+  font-size: 16px;
+}
+
 /* ===== 상황 선택 화면 ===== */
 .situation-screen {
   position: relative;
@@ -580,11 +638,13 @@
   outline: none;
 }
 
-/* 홈 화면에서는 카드 좌상단 모서리에 떠 있는 형태로 배치 */
-.home-screen .hamburger-button {
+/* 홈/상황 선택 화면에서는 카드 좌상단 모서리에 떠 있는 형태로 배치 */
+.home-screen .hamburger-button,
+.situation-screen .hamburger-button {
   position: absolute;
   top: var(--space-md);
   left: var(--space-md);
+  z-index: 3; /* .situation-screen::before 글로우(z-index:-1)보다 위, 사이드바(z-index:20+)보다는 아래 */
 }
 
 /* 채팅 헤더 안에서는 상태 텍스트와 나란히 놓이는 인라인 형태 */

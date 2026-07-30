@@ -6,6 +6,9 @@ const STT_PROMPT = `이 오디오에 실제로 담긴 말을 있는 그대로 �
 - 다른 설명이나 문장부호 보정 없이, 들리는 텍스트만 출력해.
 - 절대 추측하거나 지어내지 마. 실제로 들리지 않는 단어나 문장을 만들어내면 안 돼.
 - 무음이거나, 배경 소음뿐이거나, 말이 있어도 알아듣기 어렵다면 아무 설명 없이 빈 문자열만 출력해.`;
+const SUMMARY_PROMPT = `방금까지의 대화를 한국어 한 문장(20자 내외)으로 요약해줘.
+- 요약 문장만 출력하고, 따옴표나 "요약:" 같은 접두어는 붙이지 마.
+- 사용자가 어떤 이야기를 했는지 핵심 주제 위주로 요약해.`;
 const TTS_MODEL = 'gemini-3.1-flash-tts-preview';
 const TTS_VOICE = process.env.GEMINI_TTS_VOICE || 'Kore';
 
@@ -94,6 +97,16 @@ export async function generateReply(history, situation) {
     },
   });
   return response.text;
+}
+
+// 대화 종료 시 호출: 세션 히스토리를 한 문장으로 요약 (기록 보기 화면 표시용)
+export async function summarizeSession(history) {
+  const ai = getClient();
+  const response = await ai.models.generateContent({
+    model: MODEL,
+    contents: [...history, { role: 'user', parts: [{ text: SUMMARY_PROMPT }] }],
+  });
+  return response.text?.trim() ?? '';
 }
 
 export async function transcribeAudio(audioBuffer, mimeType) {
