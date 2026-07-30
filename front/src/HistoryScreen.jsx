@@ -14,6 +14,34 @@ function formatDate(iso) {
   });
 }
 
+function toDateKey(date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
+// 세션들의 last_active_at을 로컬 날짜별로 모아, 오늘(또는 어제까지)부터 거슬러 며칠 연속으로
+// 대화했는지 계산. last_active_at === created_at인 세션(메시지 한 번도 없이 끝남)은 제외.
+function computeStreak(sessions) {
+  const activeDates = new Set(
+    sessions
+      .filter((s) => s.last_active_at !== s.created_at)
+      .map((s) => toDateKey(new Date(s.last_active_at)))
+  );
+  if (activeDates.size === 0) return 0;
+
+  const cursor = new Date();
+  cursor.setHours(0, 0, 0, 0);
+  if (!activeDates.has(toDateKey(cursor))) {
+    cursor.setDate(cursor.getDate() - 1); // 오늘 아직 대화 안 했어도 어제까지 연속이면 스트릭 유지
+  }
+
+  let streak = 0;
+  while (activeDates.has(toDateKey(cursor))) {
+    streak += 1;
+    cursor.setDate(cursor.getDate() - 1);
+  }
+  return streak;
+}
+
 // 로그인 사용자가 본인의 과거 세션 목록/상세를 조회하는 화면.
 // docs/3rd_wk/Authplan.md 7절: 익명 세션은 로그인 후에도 소급해서 보이지 않는다는 점을 명시.
 export default function HistoryScreen() {
@@ -63,6 +91,8 @@ export default function HistoryScreen() {
     }
   };
 
+  const streak = computeStreak(sessions);
+
   if (!authLoading && !user) {
     return (
       <div className="auth-screen">
@@ -91,6 +121,11 @@ export default function HistoryScreen() {
         <h2 className="auth-title">내 대화 기록</h2>
         <span className="history-header-spacer" aria-hidden="true" />
       </header>
+      {!loading && streak > 0 && (
+        <div className="streak-badge">
+          <span aria-hidden="true">🔥</span> {streak}일 연속 대화 중
+        </div>
+      )}
       <p className="history-notice">🔒 로그인 전에 나눈 대화는 기록되지 않아요. 이 화면에는 로그인 이후의 세션만 보여요.</p>
 
       {loading && (

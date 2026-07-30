@@ -257,6 +257,22 @@
   outline: none;
 }
 
+.streak-badge {
+  align-self: flex-start;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-label);
+  font-size: var(--fs-label);
+  letter-spacing: var(--letter-spacing-label);
+  text-transform: uppercase;
+  color: var(--color-gold);
+  background: rgba(224, 168, 62, 0.1);
+  border: 1px solid var(--color-gold-dim);
+  border-radius: var(--radius-pill);
+  padding: 4px 10px;
+}
+
 .history-notice {
   font-family: var(--font-body);
   font-size: var(--fs-caption);
