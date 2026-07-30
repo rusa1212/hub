@@ -230,28 +230,9 @@
   outline: none;
 }
 
-/* ===== 채팅 헤더 내 설정 버튼 ===== */
 .chat-header-actions {
   display: flex;
   align-items: center;
   gap: var(--space-sm);
   flex-shrink: 0;
-}
-
-.settings-button {
-  background: transparent;
-  border: 1px solid var(--line-neutral);
-  color: var(--text-secondary);
-  font-size: 13px;
-  line-height: 1;
-  padding: 4px 8px;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-}
-
-.settings-button:hover,
-.settings-button:focus-visible {
-  border-color: var(--color-teal);
-  color: var(--color-teal);
-  outline: none;
 }

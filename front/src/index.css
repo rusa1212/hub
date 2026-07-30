@@ -22,10 +22,12 @@
   --line-gold: rgba(224, 168, 62, 0.7);
   --line-neutral: rgba(120, 120, 120, 0.3);
 
-  /* ===== Typography ===== */
-  --font-heading: 'Helvetica Neue', 'Arial Black', sans-serif;
+  /* ===== Typography =====
+     heading/label은 한글 글리프가 없는 라틴 전용 폰트라, 한글 텍스트는 자동으로
+     다음 폴백(시스템 고딕)으로 렌더링됨 — "AirPods Log" 같은 라틴 타이틀/숫자에만 적용됨. */
+  --font-heading: 'Space Grotesk', 'Helvetica Neue', 'Arial Black', sans-serif;
   --font-body: 'Helvetica Neue', Arial, sans-serif;
-  --font-label: 'Helvetica Neue', Arial, sans-serif;
+  --font-label: 'JetBrains Mono', 'Helvetica Neue', Arial, monospace;
 
   --fs-title: 3rem;
   --fs-h1: 1.4rem;

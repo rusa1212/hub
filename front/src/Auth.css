@@ -399,40 +399,7 @@
   outline: none;
 }
 
-/* ===== 홈 화면 로그인 상태 표시 ===== */
-.auth-status-bar {
-  position: absolute;
-  top: var(--space-sm);
-  right: var(--space-sm);
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid var(--line-neutral);
-  border-radius: var(--radius-pill);
-  padding: 4px;
-  font-family: var(--font-label);
-  font-size: var(--fs-caption);
-}
-
-.auth-status-bar button {
-  background: transparent;
-  border: none;
-  color: var(--text-secondary);
-  cursor: pointer;
-  font: inherit;
-  padding: 4px 6px;
-  border-radius: var(--radius-pill);
-  transition: color 0.2s ease, background 0.2s ease;
-}
-
-.auth-status-bar button:hover,
-.auth-status-bar button:focus-visible {
-  color: var(--color-teal);
-  background: rgba(45, 212, 167, 0.08);
-  outline: none;
-}
-
+/* ===== 사이드바 유저 아바타 (AirPodsLog.jsx의 Sidebar에서 사용) ===== */
 .auth-status-avatar {
   width: 22px;
   height: 22px;
@@ -445,10 +412,4 @@
   color: var(--color-white);
   font-size: 11px;
   font-weight: var(--fw-heading);
-}
-
-.auth-status-login {
-  display: flex;
-  align-items: center;
-  gap: 4px;
 }

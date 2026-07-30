@@ -67,6 +67,8 @@ export default function AirPodsLog() {
   const [messages, setMessages] = useState([]);
   const [inputValue, setInputValue] = useState('');
   const [sessionId, setSessionId] = useState(null);
+  // 로그인/기록보기/설정으로 이동하는 좌측 슬라이드 사이드바가 열려있는지
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   // 대화 전체 상태 머신: idle(대기/텍스트 전용 폴백) | listening(듣는 중) | processing(STT→LLM→TTS) | speaking(응답 재생 중)
   const [conversationState, setConversationState] = useState('idle');
   // STT/TTS 사용 한도 초과로 음성 기능 전체(마이크 입력 + 음성 응답)를 끈 상태인지
@@ -223,6 +225,11 @@ export default function AirPodsLog() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // 사이드바 메뉴(기록 보기/설정/로그인)를 눌러 다른 화면으로 이동하면 사이드바는 자동으로 닫음
+  useEffect(() => {
+    setSidebarOpen(false);
+  }, [location.pathname]);
 
   const handleStart = () => {
     navigate('/situation');
@@ -674,25 +681,24 @@ export default function AirPodsLog() {
 
   const HomeScreen = (
     <div className="home-screen">
-      <div className="auth-status-bar">
-        {user ? (
-          <>
-            <span className="auth-status-avatar" title={user.email} aria-hidden="true">
-              {user.email?.[0]?.toUpperCase() ?? '?'}
-            </span>
-            <button type="button" onClick={() => navigate('/history')}>기록 보기</button>
-            <button type="button" onClick={signOut}>로그아웃</button>
-          </>
-        ) : (
-          <button type="button" className="auth-status-login" onClick={() => navigate('/login')}>
-            <span aria-hidden="true">🔑</span> 로그인
-          </button>
-        )}
-        <button type="button" onClick={() => navigate('/settings')} title="설정" aria-label="설정">
-          <span aria-hidden="true">⚙️</span>
-        </button>
+      <button
+        type="button"
+        className="hamburger-button"
+        onClick={() => setSidebarOpen(true)}
+        aria-label="메뉴 열기"
+      >
+        <span aria-hidden="true">☰</span>
+      </button>
+      {/* 브랜드 마크: 이모지 대신 오디오 파형 형태의 커스텀 아이콘 (각 막대가 다른 위상으로 움직여 이퀄라이저처럼 보임) */}
+      <div className="home-icon" aria-hidden="true">
+        <svg className="home-icon-svg" viewBox="0 0 64 64" width="64" height="64">
+          <rect className="wave-bar wave-bar--1" x="4" y="24" width="8" height="16" rx="4" />
+          <rect className="wave-bar wave-bar--2" x="16" y="16" width="8" height="32" rx="4" />
+          <rect className="wave-bar wave-bar--3" x="28" y="6" width="8" height="52" rx="4" />
+          <rect className="wave-bar wave-bar--4" x="40" y="16" width="8" height="32" rx="4" />
+          <rect className="wave-bar wave-bar--5" x="52" y="24" width="8" height="16" rx="4" />
+        </svg>
       </div>
-      <div className="home-icon">🎧</div>
       <h1 className="home-title">AirPods Log</h1>
       <p className="home-subtitle">상황을 기록하면, 당신만의 에이전트가<br/>오디오로 대화를 이어갑니다.</p>
       <button className="btn-primary" onClick={handleStart}>
@@ -732,15 +738,20 @@ export default function AirPodsLog() {
       {/* 상단 헤더 */}
       <header className="chat-header">
         <div className="chat-header-status">
+          <button
+            type="button"
+            className="hamburger-button hamburger-button--inline"
+            onClick={() => setSidebarOpen(true)}
+            aria-label="메뉴 열기"
+          >
+            <span aria-hidden="true">☰</span>
+          </button>
           <span
             className={`status-dot ${conversationState === 'listening' ? 'status-dot--recording' : ''} ${conversationState === 'processing' || conversationState === 'speaking' ? 'status-dot--analyzing' : ''}`}
           ></span>
           <span className="status-text">{statusText}</span>
         </div>
         <div className="chat-header-actions">
-          <button className="settings-button" onClick={() => navigate('/settings')} title="설정" aria-label="설정">
-            ⚙️
-          </button>
           <button className="end-button" onClick={handleEndConversation} title="대화 종료">
             종료
           </button>
@@ -821,6 +832,46 @@ export default function AirPodsLog() {
     </div>
   );
 
+  // 로그인/기록보기/설정으로 이동하는 좌측 슬라이드 사이드바. 홈/채팅 화면의 햄버거 버튼으로 연다.
+  const Sidebar = (
+    <>
+      <div
+        className={`sidebar-backdrop ${sidebarOpen ? 'sidebar-backdrop--open' : ''}`}
+        onClick={() => setSidebarOpen(false)}
+        aria-hidden="true"
+      />
+      <nav className={`sidebar ${sidebarOpen ? 'sidebar--open' : ''}`} aria-label="메뉴">
+        <div className="sidebar-header">
+          {user ? (
+            <div className="sidebar-user">
+              <span className="auth-status-avatar" aria-hidden="true">
+                {user.email?.[0]?.toUpperCase() ?? '?'}
+              </span>
+              <span className="sidebar-user-email" title={user.email}>{user.email}</span>
+            </div>
+          ) : (
+            <button type="button" className="sidebar-login-btn" onClick={() => navigate('/login')}>
+              <span aria-hidden="true">🔑</span> 로그인 / 회원가입
+            </button>
+          )}
+        </div>
+        <div className="sidebar-nav">
+          <button type="button" className="sidebar-nav-item" onClick={() => navigate('/history')}>
+            <span aria-hidden="true">🗒️</span> 기록 보기
+          </button>
+          <button type="button" className="sidebar-nav-item" onClick={() => navigate('/settings')}>
+            <span aria-hidden="true">⚙️</span> 설정
+          </button>
+        </div>
+        {user && (
+          <button type="button" className="sidebar-logout-btn" onClick={signOut}>
+            로그아웃
+          </button>
+        )}
+      </nav>
+    </>
+  );
+
   return (
     <div className="app-shell">
       <div className="app-window">
@@ -833,6 +884,7 @@ export default function AirPodsLog() {
           <Route path="/settings" element={<SettingsScreen />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+        {Sidebar}
       </div>
     </div>
   );
