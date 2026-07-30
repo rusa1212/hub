@@ -4,7 +4,9 @@ async function request(path, options) {
   const res = await fetch(path, options);
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
-    throw new Error(data.message || `요청 실패 (${res.status})`);
+    const err = new Error(data.message || `요청 실패 (${res.status})`);
+    err.status = res.status;
+    throw err;
   }
   return data;
 }
@@ -94,7 +96,9 @@ export async function synthesizeSpeech(text, voice) {
   });
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));
-    throw new Error(data.message || `요청 실패 (${res.status})`);
+    const err = new Error(data.message || `요청 실패 (${res.status})`);
+    err.status = res.status;
+    throw err;
   }
   return res.blob();
 }

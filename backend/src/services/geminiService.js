@@ -91,7 +91,6 @@ export async function generateReply(history, situation) {
     contents: history,
     config: {
       systemInstruction: buildSystemInstruction(situation),
-      maxOutputTokens: 800,
     },
   });
   return response.text;
