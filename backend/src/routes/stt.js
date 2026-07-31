@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import multer from 'multer';
 import { postStt } from '../controllers/sttController.js';
+import { optionalAuth } from '../middleware/auth.js';
+import { sttLimiter } from '../middleware/rateLimit.js';
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -9,6 +11,6 @@ const upload = multer({
 
 const router = Router();
 
-router.post('/', upload.single('audio'), postStt);
+router.post('/', optionalAuth, sttLimiter, upload.single('audio'), postStt);
 
 export default router;

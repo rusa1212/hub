@@ -68,18 +68,18 @@ export async function deleteMySessions() {
   }
 }
 
-export function sendMessage(sessionId, message) {
+export async function sendMessage(sessionId, message) {
   return request('/api/chat', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
     body: JSON.stringify({ sessionId, message }),
   });
 }
 
-export function transcribeAudio(audioBlob) {
+export async function transcribeAudio(audioBlob) {
   const formData = new FormData();
   formData.append('audio', audioBlob, 'input.wav');
-  return request('/api/stt', { method: 'POST', body: formData });
+  return request('/api/stt', { method: 'POST', headers: await authHeaders(), body: formData });
 }
 
 export async function getMySettings() {
@@ -99,7 +99,7 @@ export async function updateMySettings(voice) {
 export async function synthesizeSpeech(text, voice) {
   const res = await fetch('/api/tts', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
     body: JSON.stringify({ text, voice }),
   });
   if (!res.ok) {
