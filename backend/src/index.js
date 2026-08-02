@@ -1,3 +1,4 @@
+// 앱 진입점: Express 서버를 띄우고 /api/* 라우터들을 마운트한다.
 import path from 'path';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';

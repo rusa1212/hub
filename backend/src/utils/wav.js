@@ -1,7 +1,5 @@
-// Gemini TTS는 헤더 없는 raw PCM(16bit, mono)만 반환하므로 브라우저 <audio>가 재생할 수 있게 WAV 헤더를 붙여준다.
-
-//Gemini API 등에서 생성된 헤더가 없는 순수 오디오 데이터(Raw PCM)를 
-// 브라우저나 일반 오디오 플레이어에서 재생할 수 있는 표준 WAV(Waveform Audio File Format) 파일 형식으로 변환해 주는 함수
+// PCM → WAV 변환 유틸: Gemini TTS는 헤더 없는 raw PCM(16bit, mono)만 반환하므로,
+// 브라우저 <audio>가 재생할 수 있도록 표준 WAV 헤더를 붙여준다.
 export function pcmToWav(pcmBuffer, sampleRate = 24000, channels = 1, bitDepth = 16) {
   const blockAlign = (channels * bitDepth) / 8;
   const byteRate = sampleRate * blockAlign;

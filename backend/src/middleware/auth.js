@@ -1,3 +1,4 @@
+// Supabase Bearer 토큰 검증 미들웨어: requireAuth(로그인 필수), optionalAuth(로그인 선택)
 import { getSupabase } from '../services/db.js';
 
 async function verify(req) {

@@ -1,3 +1,4 @@
+// 설정 화면: 음성 선택(미리듣기 포함), 속도/볼륨 조절, 데이터 보관 정책 안내, 기록 삭제/로그아웃
 import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from './AuthContext';

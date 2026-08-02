@@ -1,3 +1,4 @@
+// 대화 메시지 처리 컨트롤러: 세션 소유자 확인 후 Gemini에 메시지를 보내고 응답을 히스토리에 저장
 import { getSession, appendTurn } from '../services/sessionStore.js';
 import { generateReply } from '../services/geminiService.js';
 

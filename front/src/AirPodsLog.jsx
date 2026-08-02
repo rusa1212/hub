@@ -1,3 +1,6 @@
+// 앱의 핵심 화면/상태 머신: 라우팅(홈/상황선택/채팅/로그인/기록/설정), 음성 대화 루프
+// (마이크 녹음 → 무음 감지(VAD) → STT → LLM 응답 → TTS 재생 → 자동 재청취), 파형 시각화,
+// 사이드바 내비게이션까지 이 파일 하나에 모여 있음.
 import React, { useState, useRef, useEffect } from 'react';
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import {

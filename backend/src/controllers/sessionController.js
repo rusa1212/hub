@@ -1,3 +1,4 @@
+// 세션 생성/조회/목록/삭제/요약 컨트롤러
 import { createSession, getSession, getSessionsByUser, deleteSessionsByUser, setSessionSummary } from '../services/sessionStore.js';
 import { SITUATION_LABELS, summarizeSession } from '../services/geminiService.js';
 

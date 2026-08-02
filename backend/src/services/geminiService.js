@@ -1,3 +1,4 @@
+// Gemini API 연동: 대화 응답 생성, 세션 요약, 음성 인식(STT), 음성 합성(TTS), 시스템 프롬프트(페르소나) 정의
 import { GoogleGenAI, Modality } from '@google/genai';
 import { pcmToWav } from '../utils/wav.js';
 

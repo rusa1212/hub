@@ -1,3 +1,4 @@
+// API/비용 남용 방지용 rate limit 미들웨어 모음 (chat/stt/tts/세션 생성 각각 별도 한도)
 import rateLimit from 'express-rate-limit';
 
 // req.user는 optionalAuth가 먼저 실행되어야 채워짐 (라우트에서 순서 지켜야 함)

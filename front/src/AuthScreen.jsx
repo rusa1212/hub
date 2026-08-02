@@ -1,3 +1,4 @@
+// 로그인/회원가입 화면 (이메일/비밀번호)
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from './AuthContext';

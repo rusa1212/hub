@@ -1,3 +1,4 @@
+// 세션/메시지 CRUD (Supabase sessions/messages 테이블 접근 계층)
 import { getSupabase } from './db.js';
 
 // Gemini API가 쓰는 role('user'/'model')과 DB에 저장하는 role('user'/'assistant')이 달라서 매핑해줌

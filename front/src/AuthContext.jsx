@@ -1,3 +1,4 @@
+// 로그인 상태(user) 전역 컨텍스트: Supabase 세션 구독, 로그인/가입/로그아웃 함수 제공
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from './supabaseClient';
 

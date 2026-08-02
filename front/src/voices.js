@@ -1,4 +1,4 @@
-// 설정 화면(음성 선택)에서 고를 수 있는 Gemini TTS voice 목록
+// 설정 화면(음성 선택)에서 고를 수 있는 Gemini TTS voice 목록과 미리듣기 샘플 문구
 // backend/src/services/geminiService.js의 AVAILABLE_TTS_VOICES와 동기화 유지
 export const VOICES = [
   { id: 'Kore', label: 'Kore', description: '차분하고 또렷한 기본 목소리' },
