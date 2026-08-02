@@ -1,3 +1,4 @@
+// Supabase 클라이언트 싱글턴 (서비스 롤 키 사용 — RLS를 우회하므로 접근 제어는 앱 코드가 책임짐)
 import { createClient } from '@supabase/supabase-js';
 
 let client = null;

@@ -1,3 +1,4 @@
+// 로그인 사용자의 대화 기록 목록/상세 조회 화면. 연속 대화일(스트릭) 계산, 계정 삭제도 여기서 처리
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from './AuthContext';

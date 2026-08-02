@@ -1,4 +1,4 @@
-// front/src/audioUtils.test.js
+// audioUtils.interleave에 대한 단위 테스트 (정상/빈 값/경계값/실패 케이스)
 import { describe, it, expect } from 'vitest';
 import { interleave } from './audioUtils.js';
 

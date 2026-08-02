@@ -1,3 +1,4 @@
+// 로그인 사용자의 음성 설정(selectedVoiceId) 조회/저장 컨트롤러
 import { getUserSettings, upsertUserSettings } from '../services/settingsStore.js';
 import { AVAILABLE_TTS_VOICES } from '../services/geminiService.js';
 

@@ -1,3 +1,4 @@
+// 음성/속도/볼륨 설정 전역 컨텍스트: localStorage에 항상 저장하고, 로그인 시엔 음성 선택만 서버와 동기화
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { DEFAULT_VOICE } from './voices';
 import { useAuth } from './AuthContext';

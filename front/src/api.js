@@ -1,3 +1,4 @@
+// 백엔드 REST API 클라이언트: 세션/채팅/STT/TTS/설정/계정 엔드포인트 호출 + 로그인 시 Authorization 헤더 부착
 import { supabase } from './supabaseClient';
 
 async function request(path, options) {

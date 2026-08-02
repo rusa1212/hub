@@ -1,3 +1,4 @@
+// 프로젝트 소개/피칭용 정적 페이지 (기획 배경 + MVP 컨셉 시뮬레이터). 앱 라우팅에는 연결되어 있지 않음
 import React, { useState } from 'react';
 
 export default function ProjectIntro() {

@@ -1,3 +1,4 @@
+// 단일 세션 생성/조회/요약 라우트: POST /api/session, GET /api/session/:id, POST /api/session/:id/summary
 import { Router } from 'express';
 import { postSession, getSessionById, postSessionSummary } from '../controllers/sessionController.js';
 import { optionalAuth, requireAuth } from '../middleware/auth.js';

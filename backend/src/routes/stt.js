@@ -1,3 +1,4 @@
+// 음성 인식(STT) 라우트: POST /api/stt, multipart 오디오 파일을 받아 텍스트로 변환 (rate limit 적용)
 import { Router } from 'express';
 import multer from 'multer';
 import { postStt } from '../controllers/sttController.js';

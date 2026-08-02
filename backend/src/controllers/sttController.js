@@ -1,3 +1,4 @@
+// 음성 인식(STT) 컨트롤러: 업로드된 오디오 파일을 Gemini로 전사
 import { transcribeAudio } from '../services/geminiService.js';
 
 export async function postStt(req, res, next) {

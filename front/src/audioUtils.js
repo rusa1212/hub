@@ -1,3 +1,4 @@
+// 녹음 오디오(webm/opus) → WAV 변환 유틸
 // MediaRecorder가 만드는 포맷(주로 webm/opus)은 Gemini STT가 공식 지원하지 않으므로,
 // 브라우저에서 디코딩해 WAV(PCM)로 다시 인코딩한 뒤 서버로 보낸다.
 export async function blobToWav(blob) {

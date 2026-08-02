@@ -1,3 +1,4 @@
+// 계정(Supabase Auth 사용자) 삭제 컨트롤러
 import { getSupabase } from '../services/db.js';
 
 export async function deleteAccount(req, res, next) {

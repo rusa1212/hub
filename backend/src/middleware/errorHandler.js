@@ -1,3 +1,4 @@
+// 모든 라우트의 next(err)를 받아 공통 에러 응답 형식({ message })으로 변환하는 전역 에러 핸들러
 export function errorHandler(err, req, res, next) {
   console.error(err);
 

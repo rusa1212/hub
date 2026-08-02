@@ -1,3 +1,4 @@
+// 상황 선택 화면의 선택지 정의 (id/이모지/라벨) + persona_id → 메타 조회 맵
 export const SITUATIONS = [
   { id: 'exercising', emoji: '🏃', label: '운동 중' },
   { id: 'sleeping', emoji: '🌙', label: '자기 전' },
