@@ -13,6 +13,7 @@ import {
   getSessionDetail,
 } from './api';
 import { blobToWav } from './audioUtils';
+import { computeAmplitude, createBargeInDetector } from './bargeIn';
 import { useAuth } from './AuthContext';
 import { useSettings } from './SettingsContext';
 import AuthScreen from './AuthScreen';
@@ -105,6 +106,17 @@ export default function AirPodsLog() {
   const ttsAudioContextRef = useRef(null); // TTS 재생용 AudioContext (오디오 엘리먼트당 한 번만 생성)
   const ttsAnalyserRef = useRef(null); // TTS 재생 AnalyserNode
   const waveformRafRef = useRef(null);
+  // 끼어들기(barge-in, docs/nth_wk/Barkeinplan.md): SPEAKING 중에도 별도로 마이크를 열어
+  // 음량을 감시하는 파이프라인. micAnalyserRef(LISTENING 전용)와는 별개 스트림/컨텍스트를 쓴다
+  // — 재생 중에는 파형이 ttsAnalyserRef를 그리므로 화면에는 영향 없음.
+  const bargeInStreamRef = useRef(null);
+  const bargeInAudioContextRef = useRef(null);
+  const bargeInAnalyserRef = useRef(null);
+  const bargeInRafRef = useRef(null);
+  // 진행 중인 /api/tts 요청을 barge-in 시 취소하기 위한 AbortController
+  const ttsAbortControllerRef = useRef(null);
+  // playReply()의 Promise를 barge-in이 직접 settle시킬 수 있도록 resolve 콜백을 보관
+  const ttsFinishRef = useRef(null);
   // 파형 그리기 루프는 마운트 시 한 번만 시작해 계속 도는 rAF라서, 매 프레임 최신
   // conversationState를 읽으려면 state가 아니라 ref가 필요함 (stale closure 방지).
   const conversationStateRef = useRef('idle');
@@ -154,6 +166,16 @@ export default function AirPodsLog() {
       if (waveformRafRef.current) {
         cancelAnimationFrame(waveformRafRef.current);
       }
+      if (bargeInRafRef.current) {
+        cancelAnimationFrame(bargeInRafRef.current);
+      }
+      if (bargeInStreamRef.current) {
+        bargeInStreamRef.current.getTracks().forEach((track) => track.stop());
+      }
+      if (bargeInAudioContextRef.current) {
+        bargeInAudioContextRef.current.close();
+      }
+      ttsAbortControllerRef.current?.abort();
     };
   }, []);
 
@@ -286,8 +308,7 @@ export default function AirPodsLog() {
 
     const checkVoice = () => {
       analyser.getByteTimeDomainData(dataArray);
-      const avgAmplitude =
-        dataArray.reduce((sum, v) => sum + Math.abs(v - 128), 0) / dataArray.length;
+      const avgAmplitude = computeAmplitude(dataArray);
 
       // phase(발화 시작/자동 종료 판단)와 별개로, 아주 낮은 기준으로 "이번 녹음에 소리가
       // 조금이라도 있었는지"만 계속 갱신 — SILENCE_THRESHOLD를 못 넘는 조용한 발화도 STT는 타게 함
@@ -329,6 +350,103 @@ export default function AirPodsLog() {
     micAnalyserRef.current = null;
   };
 
+  // 끼어들기(barge-in) 감지: SPEAKING(TTS 재생) 중에 별도로 마이크를 열어 음량을 감시하다가,
+  // BARGE_IN_THRESHOLD를 BARGE_IN_SUSTAIN_MS 이상 연속으로 넘기면(=createBargeInDetector) 사용자가
+  // 다시 말하기 시작한 것으로 보고 handleBargeIn을 호출한다. 실패해도(권한 거부 등) TTS 재생
+  // 자체는 계속돼야 하므로 조용히 무시한다.
+  const startBargeInWatcher = async () => {
+    try {
+      // TTS가 스피커로 나오는 동안 여는 마이크라 에코 문제(Barkeinplan.md 3-1)가 가장 크게
+      // 걸리는 지점 — 하드웨어 AEC에 의존해야 하므로 echoCancellation을 명시적으로 요청한다.
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: true },
+      });
+      // 감시를 시작하기 전에 이미 재생이 끝났거나(응답이 매우 짧음) 대화가 끝났으면 그냥 스트림을 닫는다.
+      if (conversationStateRef.current !== 'speaking' || !sessionAliveRef.current) {
+        stream.getTracks().forEach((track) => track.stop());
+        return;
+      }
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      const audioContext = new AudioContextClass();
+      const source = audioContext.createMediaStreamSource(stream);
+      const analyser = audioContext.createAnalyser();
+      analyser.fftSize = 256;
+      source.connect(analyser); // destination에는 연결하지 않음 (하울링 방지)
+
+      bargeInStreamRef.current = stream;
+      bargeInAudioContextRef.current = audioContext;
+      bargeInAnalyserRef.current = analyser;
+
+      const dataArray = new Uint8Array(analyser.frequencyBinCount);
+      const detect = createBargeInDetector();
+
+      const check = () => {
+        analyser.getByteTimeDomainData(dataArray);
+        const amplitude = computeAmplitude(dataArray);
+        if (detect(amplitude, performance.now())) {
+          handleBargeIn();
+          return;
+        }
+        bargeInRafRef.current = requestAnimationFrame(check);
+      };
+
+      bargeInRafRef.current = requestAnimationFrame(check);
+    } catch (err) {
+      console.error('끼어들기 감지용 마이크 접근 실패:', err);
+    }
+  };
+
+  const stopBargeInWatcher = () => {
+    if (bargeInRafRef.current) {
+      cancelAnimationFrame(bargeInRafRef.current);
+      bargeInRafRef.current = null;
+    }
+    if (bargeInStreamRef.current) {
+      bargeInStreamRef.current.getTracks().forEach((track) => track.stop());
+      bargeInStreamRef.current = null;
+    }
+    if (bargeInAudioContextRef.current) {
+      bargeInAudioContextRef.current.close();
+      bargeInAudioContextRef.current = null;
+    }
+    bargeInAnalyserRef.current = null;
+  };
+
+  // TTS 재생을 즉시 중단한다 (재생 중인 <audio>, 진행 중인 /api/tts 요청 모두). barge-in뿐
+  // 아니라 대화 종료/리셋(resetConversationPipeline)에서도 재사용한다.
+  // interrupted:true로 호출하면 playReply()의 Promise를 true로 settle시켜, speakThenContinue가
+  // (barge-in이 이미 후속 처리를 했거나, 애초에 세션이 끝났으니) 자동 재청취를 걸지 않고 그냥
+  // 리턴하게 한다 — speakThenContinue는 !sessionAliveRef 체크를 먼저 하므로 세션 종료 상황에서도 안전.
+  const stopTtsPlayback = ({ interrupted = false } = {}) => {
+    const player = audioPlayerRef.current;
+    if (player) {
+      player.onended = null;
+      player.onerror = null;
+      player.pause();
+    }
+    if (ttsAbortControllerRef.current) {
+      ttsAbortControllerRef.current.abort();
+      ttsAbortControllerRef.current = null;
+    }
+    if (ttsFinishRef.current) {
+      const finish = ttsFinishRef.current;
+      ttsFinishRef.current = null;
+      finish(interrupted);
+    }
+  };
+
+  // TTS 재생 중 끼어들기가 감지됐을 때: 재생/요청을 중단하고 바로 새 녹음을 시작한다.
+  // (docs/nth_wk/Barkeinplan.md Phase 1 — interrupted 상태 자체는 Phase 2 스코프라 여기서는
+  // speaking → listening으로 바로 전환한다)
+  const handleBargeIn = () => {
+    if (conversationStateRef.current !== 'speaking') return;
+    stopBargeInWatcher();
+    stopTtsPlayback({ interrupted: true });
+    if (conversationActiveRef.current && sessionAliveRef.current) {
+      startListening();
+    }
+  };
+
   // 녹음/재생 중이던 오디오 파이프라인과 메시지 목록을 정리. "종료" 버튼뿐 아니라 새 페르소나를
   // 시작할 때도 호출해서, 뒤로가기 등으로 "종료"를 거치지 않고 이전 세션이 남아있던 경우에도
   // 이전 대화 내용이나 마이크 녹음이 새 세션으로 이어지지 않도록 함.
@@ -338,12 +456,8 @@ export default function AirPodsLog() {
       mediaRecorderRef.current.stop();
     }
     stopSilenceWatcher();
-
-    if (audioPlayerRef.current) {
-      audioPlayerRef.current.onended = null;
-      audioPlayerRef.current.onerror = null;
-      audioPlayerRef.current.pause();
-    }
+    stopBargeInWatcher();
+    stopTtsPlayback({ interrupted: true });
 
     sessionIdRef.current = null;
     setSessionId(null);
@@ -448,26 +562,41 @@ export default function AirPodsLog() {
     return analyser;
   };
 
-  // 에이전트 응답 텍스트를 TTS로 변환해 재생. 재생이 끝나면(성공/실패 무관) resolve.
+  // 에이전트 응답 텍스트를 TTS로 변환해 재생. 재생이 끝나면(성공/실패/끼어들기 무관) resolve.
+  // resolve 값은 barge-in으로 중단됐는지 여부(interrupted) — speakThenContinue가 이를 보고
+  // 자동 재청취를 다시 걸지 말지 판단한다 (barge-in 핸들러가 이미 새 녹음을 시작했으므로).
   const playReply = (text) => {
     return new Promise((resolve) => {
       if (!sessionAliveRef.current) {
-        resolve();
+        resolve(false);
         return;
       }
       setConversationState('speaking');
       ensureTtsAnalyser();
       ttsAudioContextRef.current?.resume().catch(() => {});
+      startBargeInWatcher(); // TTS 재생 중에도 마이크를 열어 끼어들기를 감시 (Barkeinplan.md Phase 1)
 
-      const finish = () => resolve();
+      let settled = false;
+      const finish = (interrupted = false) => {
+        if (settled) return;
+        settled = true;
+        ttsFinishRef.current = null;
+        stopBargeInWatcher(); // 재생이 끝났으니(정상/실패/끼어들기 무관) 끼어들기 감시용 마이크도 닫음
+        resolve(interrupted);
+      };
+      ttsFinishRef.current = finish;
 
       (async () => {
         try {
+          const controller = new AbortController();
+          ttsAbortControllerRef.current = controller;
           const audioBlob = await withTimeout(
-            synthesizeSpeech(text, voice),
+            synthesizeSpeech(text, voice, { signal: controller.signal }),
             PROCESSING_TIMEOUT_MS,
             'TTS 응답 시간 초과'
           );
+          ttsAbortControllerRef.current = null;
+          if (settled) return; // barge-in 등으로 이미 중단됨 (fetch는 끝났지만 재생은 하지 않음)
           const url = URL.createObjectURL(audioBlob);
           if (objectUrlRef.current) {
             URL.revokeObjectURL(objectUrlRef.current);
@@ -478,13 +607,20 @@ export default function AirPodsLog() {
             finish();
             return;
           }
-          player.onended = finish;
-          player.onerror = finish;
+          player.onended = () => finish();
+          player.onerror = () => finish();
           player.src = url;
           player.playbackRate = speed;
           player.volume = volume;
           await player.play();
         } catch (err) {
+          ttsAbortControllerRef.current = null;
+          if (settled) return; // stopTtsPlayback이 이미 finish(interrupted)를 호출함
+          if (err?.name === 'AbortError') {
+            // barge-in이 아닌 다른 이유로 재생/요청이 중단된 경우(예: 브라우저 정책) — 그냥 정상 종료로 처리
+            finish(false);
+            return;
+          }
           console.error('TTS 재생 실패:', err);
           if (err?.status === 429) {
             disableVoice();
@@ -498,10 +634,12 @@ export default function AirPodsLog() {
   // 응답을 말하고, 끝나면 대화가 살아있는 한 자동으로 LISTENING으로 돌아감 (이슈 3 핵심 루프)
   const speakThenContinue = async (text) => {
     // 음성이 꺼진 상태(사용 한도 초과)면 TTS 호출 자체를 건너뛰고 텍스트만 남긴다
+    let interrupted = false;
     if (!voiceDisabledRef.current) {
-      await playReply(text);
+      interrupted = await playReply(text);
     }
     if (!sessionAliveRef.current) return; // 재생 중/대기 중 "종료"를 눌렀으면 아무 것도 하지 않음
+    if (interrupted) return; // 끼어들기(barge-in) 핸들러가 이미 새 녹음을 시작했으므로 여기선 아무 것도 하지 않음
     if (conversationActiveRef.current && !voiceDisabledRef.current) {
       startListening();
     } else {
