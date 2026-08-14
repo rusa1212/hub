@@ -419,6 +419,11 @@
   box-shadow: var(--glow-teal);
 }
 
+.status-dot--interrupted {
+  background: #f472b6;
+  box-shadow: 0 0 14px rgba(244, 114, 182, 0.75);
+}
+
 .status-text {
   font-family: var(--font-label);
   font-size: var(--fs-label);
@@ -535,6 +540,28 @@
   background: var(--color-bg-elevated);
   border-left: 3px solid var(--color-gold);
   color: var(--text-primary);
+}
+
+.bubble--interrupted {
+  border-left-color: #f472b6;
+  opacity: 0.72;
+}
+
+.bubble-interrupted-label {
+  display: block;
+  margin-top: 4px;
+  color: #f9a8d4;
+  font-size: var(--fs-caption);
+  font-style: italic;
+}
+
+.agent-avatar--interrupted {
+  background: #9d3d73;
+}
+
+.bubble--interruption-cue {
+  border-left-color: #f472b6;
+  color: #f9a8d4;
 }
 
 .bubble--speaking {

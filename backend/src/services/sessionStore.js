@@ -28,7 +28,7 @@ export async function getSession(sessionId) {
 
   const { data: messages, error: messagesError } = await supabase
     .from('messages')
-    .select('role, content')
+    .select('id, role, content, interrupted, interrupted_at')
     .eq('session_id', sessionId)
     .order('created_at', { ascending: true });
   if (messagesError) throw messagesError;
@@ -36,9 +36,12 @@ export async function getSession(sessionId) {
   return {
     situation: session.persona_id,
     userId: session.user_id,
-    history: messages.map(({ role, content }) => ({
+    history: messages.map(({ id, role, content, interrupted, interrupted_at: interruptedAt }) => ({
+      id,
       role: DB_TO_GEMINI_ROLE[role] ?? role,
       parts: [{ text: content }],
+      interrupted: Boolean(interrupted),
+      interruptedAt,
     })),
   };
 }
@@ -73,9 +76,11 @@ export async function appendTurn(sessionId, role, text) {
   const supabase = getSupabase();
   const dbRole = GEMINI_TO_DB_ROLE[role] ?? role;
 
-  const { error: insertError } = await supabase
+  const { data: insertedMessage, error: insertError } = await supabase
     .from('messages')
-    .insert({ session_id: sessionId, role: dbRole, content: text });
+    .insert({ session_id: sessionId, role: dbRole, content: text })
+    .select('id')
+    .single();
   if (insertError) throw insertError;
 
   const { error: touchError } = await supabase
@@ -83,4 +88,41 @@ export async function appendTurn(sessionId, role, text) {
     .update({ last_active_at: new Date().toISOString() })
     .eq('id', sessionId);
   if (touchError) throw touchError;
+  return insertedMessage.id;
+}
+
+// TTS 중단은 응답 텍스트를 지우지 않고 해당 assistant 메시지에 표시한다. 별도 이벤트 행도
+// 남겨 오탐률/중단 시점 등을 메시지 내용과 분리해 분석할 수 있게 한다.
+export async function recordInterruption(sessionId, { messageId = null, playbackMs = null } = {}) {
+  const supabase = getSupabase();
+  const interruptedAt = new Date().toISOString();
+
+  if (messageId) {
+    const { data: message, error: messageError } = await supabase
+      .from('messages')
+      .select('id')
+      .eq('id', messageId)
+      .eq('session_id', sessionId)
+      .eq('role', 'assistant')
+      .maybeSingle();
+    if (messageError) throw messageError;
+    if (!message) return false;
+
+    const { error: updateError } = await supabase
+      .from('messages')
+      .update({ interrupted: true, interrupted_at: interruptedAt })
+      .eq('id', messageId);
+    if (updateError) throw updateError;
+  }
+
+  const metadata = {};
+  if (Number.isFinite(playbackMs)) metadata.playback_ms = Math.max(0, Math.round(playbackMs));
+  const { error: eventError } = await supabase.from('conversation_events').insert({
+    session_id: sessionId,
+    message_id: messageId,
+    event_type: 'barge_in',
+    metadata,
+  });
+  if (eventError) throw eventError;
+  return true;
 }

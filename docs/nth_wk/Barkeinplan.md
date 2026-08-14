@@ -52,13 +52,21 @@ MediaRecorder → webm/opus → WAV 변환 → /api/stt → /api/chat (세션 �
   - [x] 새로운 녹음(MediaRecorder) 즉시 시작 — `handleBargeIn()`에서 `startListening()` 호출
 
 ### Phase 2: 상태 관리 및 UX 피드백
-- [ ] 대화 상태 머신에 `interrupted` 상태 추가 (idle → listening → thinking → speaking → interrupted → listening)
-- [ ] 끼어들기 성공 시 짧은 사운드 큐 또는 웨이브폼 색상 변화로 피드백
-- [ ] 오탐(잡음 등으로 오작동) 시 복구 로직 — 일정 시간 내 실제 STT 발화 없으면 원래 응답 재생 재개할지 / 그냥 새로 듣기 모드로 전환할지 결정
+- [x] 대화 상태 머신에 `interrupted` 상태 추가 (`speaking → interrupted → listening`)
+  - 기존 코드의 `thinking` 상태명은 `processing`이므로 유지
+- [x] 끼어들기 성공 시 웨이브폼/상태 점을 핑크로 변경하고 `응답을 멈추고 들을게요` 피드백 표시
+  - 다른 소리와 겹치지 않도록 사운드 큐 대신 시각 피드백 선택
+- [x] 오탐 복구 로직
+  - 4초 내 발화가 시작되지 않으면 중단된 응답은 재생하지 않고 일반 `listening` 모드로 안정화
+  - STT 결과가 빈 경우에도 응답 재생 대신 새 듣기 모드로 복귀
+  - 중단된 음성을 재개하면 사용자의 느진 발화와 겹칠 수 있어 재생 재개는 채택하지 않음
 
 ### Phase 3: 세션 히스토리 처리
-- [ ] 중단된 TTS 응답의 텍스트를 `messages` 테이블에 어떻게 기록할지 (전체 텍스트 vs 재생된 부분까지만 vs 중단 플래그 추가)
-- [ ] 중단 이벤트 자체를 로깅할지 여부 (디버깅/분석 목적)
+- [x] 중단된 TTS 응답은 전체 텍스트를 그대로 유지하고 `messages.interrupted`, `messages.interrupted_at`으로 표시
+  - `/api/chat` 응답에 assistant `messageId`를 포함해 현재 재생 중인 DB 행을 정확히 연결
+  - 이전 대화 이어하기 시에도 중단 표시를 복원
+- [x] `conversation_events`에 `barge_in` 이벤트, 연결 메시지, 실제 재생 경과 시간(`playback_ms`)을 로깅
+  - DB 마이그레이션: `backend/sql/006_barge_in_history.sql`
 
 ### Phase 4: 스트리밍 TTS와의 통합 (추후)
 - 현재 로드맵에 있는 "문장 단위 스트리밍 TTS"와 barge-in은 함께 설계해야 함

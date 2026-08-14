@@ -189,6 +189,9 @@ beforeEach(() => {
         });
       });
     }
+    if (url === '/api/session/sess-1/interruption') {
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({ recorded: true }) });
+    }
     return Promise.reject(new Error(`unexpected fetch: ${url}`));
   });
   vi.stubGlobal('fetch', fetchMock);
@@ -260,10 +263,18 @@ describe('barge-in 통합 동작 (docs/nth_wk/Barkeinplan.md Phase 1)', () => {
     await waitFor(() => {
       expect(screen.queryByText('말하는 중...')).not.toBeInTheDocument();
     });
-    expect(screen.getByText(/편하게 말씀해주세요|듣는 중/)).toBeInTheDocument();
+    await screen.findByText(/편하게 말씀해주세요|듣는 중/);
     // 4) 새 녹음이 실제로 시작됨
     await waitFor(() => expect(createdRecorders.length).toBeGreaterThanOrEqual(1));
     expect(createdRecorders[createdRecorders.length - 1].state).toBe('recording');
+    // 감시용 스트림을 그대로 녹음에 재사용해 새 getUserMedia 지연으로 발화 첫부분이 유실되지 않음
+    expect(getUserMediaMock).toHaveBeenCalledTimes(2); // 최초 권한 확인 + barge-in 감시
+    // Phase 2/3: 사용자에게 중단 여부를 남기고, 세션 이벤트도 서버에 기록한다.
+    expect(screen.getByText('음성 중단됨')).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/session/sess-1/interruption',
+      expect.objectContaining({ method: 'POST' })
+    );
   });
 
   it('짧은 스파이크(소음)만으로는 끼어들기가 발동하지 않는다 (오탐 방지)', async () => {

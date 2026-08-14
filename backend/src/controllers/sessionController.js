@@ -1,5 +1,12 @@
 // 세션 생성/조회/목록/삭제/요약 컨트롤러
-import { createSession, getSession, getSessionsByUser, deleteSessionsByUser, setSessionSummary } from '../services/sessionStore.js';
+import {
+  createSession,
+  getSession,
+  getSessionsByUser,
+  deleteSessionsByUser,
+  setSessionSummary,
+  recordInterruption,
+} from '../services/sessionStore.js';
 import { SITUATION_LABELS, summarizeSession } from '../services/geminiService.js';
 
 export async function postSession(req, res, next) {
@@ -44,6 +51,26 @@ export async function postSessionSummary(req, res, next) {
     const summary = await summarizeSession(session.history);
     await setSessionSummary(req.params.id, summary);
     res.json({ summary });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function postSessionInterruption(req, res, next) {
+  try {
+    const session = await getSession(req.params.id);
+    if (!session || (session.userId && session.userId !== req.user?.id)) {
+      return res.status(404).json({ message: '세션을 찾을 수 없습니다.' });
+    }
+    const { messageId = null, playbackMs = null } = req.body ?? {};
+    if (playbackMs !== null && (!Number.isFinite(playbackMs) || playbackMs < 0)) {
+      return res.status(400).json({ message: 'playbackMs는 0 이상의 숫자여야 합니다.' });
+    }
+    const recorded = await recordInterruption(req.params.id, { messageId, playbackMs });
+    if (!recorded) {
+      return res.status(404).json({ message: '중단할 assistant 메시지를 찾을 수 없습니다.' });
+    }
+    res.status(201).json({ recorded: true });
   } catch (err) {
     next(err);
   }

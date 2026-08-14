@@ -22,8 +22,8 @@ export async function postChat(req, res, next) {
     await appendTurn(sessionId, 'user', message);
     const history = [...session.history, { role: 'user', parts: [{ text: message }] }];
     const reply = await generateReply(history, session.situation);
-    await appendTurn(sessionId, 'model', reply);
-    res.json({ reply });
+    const messageId = await appendTurn(sessionId, 'model', reply);
+    res.json({ reply, messageId });
   } catch (err) {
     next(err);
   }
