@@ -47,6 +47,14 @@ export async function summarizeSession(sessionId) {
   });
 }
 
+export async function recordInterruption(sessionId, { messageId = null, playbackMs = null } = {}) {
+  return request(`/api/session/${sessionId}/interruption`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
+    body: JSON.stringify({ messageId, playbackMs }),
+  });
+}
+
 export async function deleteAccount() {
   const res = await fetch('/api/account', {
     method: 'DELETE',

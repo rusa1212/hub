@@ -92,11 +92,17 @@ function getClient() {
   return client;
 }
 
+// DB/API 히스토리에는 interrupted 표시와 메시지 ID가 포함될 수 있지만,
+// Gemini contents에는 공식 role/parts 필드만 넘겨 스키마 검증 오류를 막는다.
+function toModelContents(history) {
+  return history.map(({ role, parts }) => ({ role, parts }));
+}
+
 export async function generateReply(history, situation) {
   const ai = getClient();
   const response = await ai.models.generateContent({
     model: MODEL,
-    contents: history,
+    contents: toModelContents(history),
     config: {
       systemInstruction: buildSystemInstruction(situation),
     },
@@ -109,7 +115,7 @@ export async function summarizeSession(history) {
   const ai = getClient();
   const response = await ai.models.generateContent({
     model: MODEL,
-    contents: [...history, { role: 'user', parts: [{ text: SUMMARY_PROMPT }] }],
+    contents: [...toModelContents(history), { role: 'user', parts: [{ text: SUMMARY_PROMPT }] }],
   });
   return response.text?.trim() ?? '';
 }

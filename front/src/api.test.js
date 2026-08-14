@@ -2,7 +2,7 @@
 // AbortController로 취소할 수 있어야 하므로(docs/nth_wk/Barkeinplan.md 3-3), signal이
 // fetch까지 그대로 전달되는지, 취소 시 AbortError가 그대로 전파되는지를 검증한다.
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { synthesizeSpeech } from './api.js';
+import { recordInterruption, synthesizeSpeech } from './api.js';
 
 describe('synthesizeSpeech', () => {
   let fetchMock;
@@ -78,5 +78,30 @@ describe('synthesizeSpeech', () => {
         message: '사용 한도 초과',
       });
     });
+  });
+});
+
+describe('recordInterruption', () => {
+  beforeEach(() => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ recorded: true }),
+    });
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('assistant 메시지 ID와 재생 경과 시간을 중단 이벤트 API로 전달한다', async () => {
+    await recordInterruption('sess-1', { messageId: 'msg-7', playbackMs: 1250.4 });
+
+    expect(fetch).toHaveBeenCalledWith(
+      '/api/session/sess-1/interruption',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({ messageId: 'msg-7', playbackMs: 1250.4 }),
+      })
+    );
   });
 });
