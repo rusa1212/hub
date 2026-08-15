@@ -8,6 +8,12 @@ export function errorHandler(err, req, res, next) {
     });
   }
 
+  if (err.status === 503) {
+    return res.status(503).json({
+      message: 'AI 서비스가 일시적으로 요청을 처리할 수 없습니다. 잠시 후 다시 시도해주세요.',
+    });
+  }
+
   res.status(500).json({
     message: '요청을 처리하는 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.',
   });
