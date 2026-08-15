@@ -20,7 +20,7 @@ export async function getSession(sessionId) {
   const supabase = getSupabase();
   const { data: session, error: sessionError } = await supabase
     .from('sessions')
-    .select('id, persona_id, user_id')
+    .select('id, persona_id, user_id, created_at, last_active_at, summary')
     .eq('id', sessionId)
     .maybeSingle();
   if (sessionError) throw sessionError;
@@ -36,6 +36,9 @@ export async function getSession(sessionId) {
   return {
     situation: session.persona_id,
     userId: session.user_id,
+    createdAt: session.created_at,
+    lastActiveAt: session.last_active_at,
+    summary: session.summary,
     history: messages.map(({ id, role, content, interrupted, interrupted_at: interruptedAt }) => ({
       id,
       role: DB_TO_GEMINI_ROLE[role] ?? role,

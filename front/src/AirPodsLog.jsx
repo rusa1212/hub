@@ -8,7 +8,6 @@ import {
   sendMessage,
   transcribeAudio,
   synthesizeSpeech,
-  summarizeSession,
   getMySessions,
   getSessionDetail,
   recordInterruption,
@@ -20,6 +19,7 @@ import { useSettings } from './SettingsContext';
 import AuthScreen from './AuthScreen';
 import HistoryScreen from './HistoryScreen';
 import SettingsScreen from './SettingsScreen';
+import RecapScreen from './RecapScreen';
 import { SITUATIONS, SITUATION_META_BY_ID } from './situations';
 import './AirPodsLog.css';
 import './Auth.css';
@@ -1016,18 +1016,14 @@ export default function AirPodsLog() {
     stopListeningAndProcess();
   };
 
-  // 상태와 무관하게 항상 눌러서 대화를 완전히 끝내고 홈으로 돌아갈 수 있는 버튼
+  // 상태와 무관하게 항상 눌러서 대화를 끝내고, 생성된 세션이 있으면 리캡으로 이동한다.
   const handleEndConversation = () => {
     sessionAliveRef.current = false;
     conversationActiveRef.current = false;
     const endingSessionId = sessionIdRef.current; // resetConversationPipeline이 지우기 전에 따로 보관
-    // 로그인 사용자의 세션에 한해 기록 보기용 한 줄 요약을 백그라운드로 생성 (화면 전환을 막지 않음)
-    if (user && endingSessionId) {
-      summarizeSession(endingSessionId).catch((err) => console.error('대화 요약 생성 실패:', err));
-    }
     resetConversationPipeline();
     setConversationState('idle');
-    navigate('/');
+    navigate(endingSessionId ? `/recap/${endingSessionId}` : '/');
   };
 
   const HomeScreen = (
@@ -1266,6 +1262,7 @@ export default function AirPodsLog() {
           <Route path="/login" element={<AuthScreen />} />
           <Route path="/history" element={<HistoryScreen />} />
           <Route path="/settings" element={<SettingsScreen />} />
+          <Route path="/recap/:sessionId" element={<RecapScreen onContinue={handleResumeSession} />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
         {Sidebar}

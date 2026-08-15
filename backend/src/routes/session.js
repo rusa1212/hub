@@ -6,14 +6,14 @@ import {
   postSessionSummary,
   postSessionInterruption,
 } from '../controllers/sessionController.js';
-import { optionalAuth, requireAuth } from '../middleware/auth.js';
+import { optionalAuth } from '../middleware/auth.js';
 import { sessionCreateLimiter } from '../middleware/rateLimit.js';
 
 const router = Router();
 
 router.post('/', optionalAuth, sessionCreateLimiter, postSession);
 router.get('/:id', optionalAuth, getSessionById);
-router.post('/:id/summary', requireAuth, postSessionSummary);
+router.post('/:id/summary', optionalAuth, postSessionSummary);
 router.post('/:id/interruption', optionalAuth, postSessionInterruption);
 
 export default router;
