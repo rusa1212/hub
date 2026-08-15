@@ -14,6 +14,7 @@ import {
 } from './api';
 import { blobToWav } from './audioUtils';
 import { computeAmplitude, createBargeInDetector } from './bargeIn';
+import { classifyRequestError } from './requestError';
 import { useAuth } from './AuthContext';
 import { useSettings } from './SettingsContext';
 import AuthScreen from './AuthScreen';
@@ -93,6 +94,8 @@ export default function AirPodsLog() {
   const [lastSession, setLastSession] = useState(null);
   // listening 상태의 서브 단계: waiting(발화 대기, 무한정) | active(발화 중, 무음 지속시간 감지 시작)
   const [listeningPhase, setListeningPhase] = useState('waiting');
+  // 요청 실패 원인과 재시도 UI. 실제 재시도 데이터(텍스트/Blob)는 렌더링과 무관하므로 ref에 둔다.
+  const [requestError, setRequestError] = useState(null);
 
   const chatEndRef = useRef(null);
   const audioPlayerRef = useRef(null);
@@ -145,6 +148,18 @@ export default function AirPodsLog() {
   const sessionAliveRef = useRef(false);
   // voiceDisabled state를 콜백/클로저 안에서도 최신값으로 읽기 위한 ref (다른 *Ref 필드들과 동일한 패턴)
   const voiceDisabledRef = useRef(voiceDisabled);
+  const failedRequestRef = useRef(null);
+
+  const clearRequestError = () => {
+    failedRequestRef.current = null;
+    setRequestError(null);
+  };
+
+  const showRequestError = (error, failedRequest = null) => {
+    const classified = classifyRequestError(error);
+    failedRequestRef.current = classified.retryable ? failedRequest : null;
+    setRequestError(classified);
+  };
 
   useEffect(() => {
     conversationStateRef.current = conversationState;
@@ -541,6 +556,7 @@ export default function AirPodsLog() {
     setSessionId(null);
     setMessages([]);
     setInputValue('');
+    clearRequestError();
   };
 
   // STT/TTS가 사용 한도(429)에 걸렸을 때 호출. 마이크 루프를 끄고 이후로는 텍스트로만
@@ -735,6 +751,7 @@ export default function AirPodsLog() {
           if (err?.status === 429) {
             disableVoice();
           }
+          showRequestError(err, err?.status === 429 ? null : { type: 'tts', text, message });
           finish();
         }
       })();
@@ -860,6 +877,27 @@ export default function AirPodsLog() {
   // 텍스트 입력은 LISTENING(마이크가 배경에서 대기 중) 또는 idle(마이크 권한 없음 폴백) 상태에서만 허용
   const canType = conversationState === 'listening' || conversationState === 'idle';
 
+  const requestChatReply = async (textToSend) => {
+    clearRequestError();
+    setConversationState('processing');
+    try {
+      const { reply, messageId } = await withTimeout(
+        sendMessage(sessionIdRef.current, textToSend),
+        PROCESSING_TIMEOUT_MS,
+        '응답 시간 초과'
+      );
+      if (!sessionAliveRef.current) return; // 응답 대기 중 "종료"를 눌렀으면 반영하지 않음
+      const replyMessage = { id: Date.now() + 1, serverMessageId: messageId, sender: 'agent', text: reply };
+      setMessages((prev) => [...prev, replyMessage]);
+      await speakThenContinue(reply, replyMessage);
+    } catch (err) {
+      console.error('메시지 전송 실패:', err);
+      if (!sessionAliveRef.current) return;
+      showRequestError(err, { type: 'chat', text: textToSend });
+      setConversationState('idle');
+    }
+  };
+
   const handleSendMessage = async () => {
     if (!inputValue.trim() || !canType) return;
     if (!sessionIdRef.current) {
@@ -874,34 +912,10 @@ export default function AirPodsLog() {
       mediaRecorderRef.current.stop();
     }
 
-    const newUserMsg = { id: Date.now(), sender: 'user', text: inputValue };
-    setMessages((prev) => [...prev, newUserMsg]);
     const textToSend = inputValue;
+    setMessages((prev) => [...prev, { id: Date.now(), sender: 'user', text: textToSend }]);
     setInputValue('');
-
-    setConversationState('processing');
-
-    let replyText;
-    try {
-      const { reply, messageId } = await withTimeout(
-        sendMessage(sessionIdRef.current, textToSend),
-        PROCESSING_TIMEOUT_MS,
-        '응답 시간 초과'
-      );
-      if (!sessionAliveRef.current) return; // 응답 대기 중 "종료"를 눌렀으면 반영하지 않음
-      replyText = reply;
-      const replyMessage = { id: Date.now() + 1, serverMessageId: messageId, sender: 'agent', text: reply };
-      setMessages((prev) => [...prev, replyMessage]);
-      await speakThenContinue(replyText, replyMessage);
-      return;
-    } catch (err) {
-      console.error('메시지 전송 실패:', err);
-      if (!sessionAliveRef.current) return;
-      replyText = '지금은 응답을 받아올 수 없어요. 잠시 후 다시 시도해주세요.';
-      setMessages((prev) => [...prev, { id: Date.now() + 1, sender: 'agent', text: replyText }]);
-    }
-
-    await speakThenContinue(replyText);
+    await requestChatReply(textToSend);
   };
 
   const handleKeyPress = (e) => {
@@ -927,7 +941,6 @@ export default function AirPodsLog() {
       return;
     }
 
-    let replyText;
     let transcript;
     try {
       const wavBlob = await blobToWav(audioBlob);
@@ -942,14 +955,12 @@ export default function AirPodsLog() {
       // STT 사용 한도(429) 초과라면 음성 기능을 끄고 텍스트로만 계속한다 (disableVoice가 안내 메시지를 남김)
       if (err?.status === 429) {
         disableVoice();
+        showRequestError(err);
         setConversationState('idle');
         return;
       }
-      // 그 외 STT 호출 자체가 실패한 경우(네트워크, 타임아웃 등)는
-      // "못 알아들었다"가 아니라 텍스트 경로(handleSendMessage)와 동일하게 안내한다.
-      replyText = '지금은 응답을 받아올 수 없어요. 잠시 후 다시 시도해주세요.';
-      setMessages((prev) => [...prev, { id: Date.now() + 1, sender: 'agent', text: replyText }]);
-      await speakThenContinue(replyText);
+      showRequestError(err, { type: 'stt', audioBlob, fromBargeIn });
+      setConversationState('idle');
       return;
     }
     if (!sessionAliveRef.current) return; // STT 대기 중 "종료"를 눌렀으면 반영하지 않음
@@ -963,34 +974,14 @@ export default function AirPodsLog() {
         return;
       }
       // STT 호출은 성공했지만 결과가 빈 경우: 진짜로 알아듣지 못한 케이스
-      replyText = '음성을 알아듣지 못했어요. 다시 한번 말씀해주시겠어요?';
+      const replyText = '음성을 알아듣지 못했어요. 다시 한번 말씀해주시겠어요?';
       setMessages((prev) => [...prev, { id: Date.now() + 1, sender: 'agent', text: replyText }]);
       await speakThenContinue(replyText);
       return;
     }
 
     setMessages((prev) => [...prev, { id: Date.now(), sender: 'user', text: transcript }]);
-
-    try {
-      const { reply, messageId } = await withTimeout(
-        sendMessage(sessionIdRef.current, transcript),
-        PROCESSING_TIMEOUT_MS,
-        '응답 시간 초과'
-      );
-      if (!sessionAliveRef.current) return; // 응답 대기 중 "종료"를 눌렀으면 반영하지 않음
-      replyText = reply;
-      const replyMessage = { id: Date.now() + 1, serverMessageId: messageId, sender: 'agent', text: reply };
-      setMessages((prev) => [...prev, replyMessage]);
-      await speakThenContinue(replyText, replyMessage);
-      return;
-    } catch (err) {
-      console.error('메시지 전송 실패:', err);
-      if (!sessionAliveRef.current) return;
-      replyText = '지금은 응답을 받아올 수 없어요. 잠시 후 다시 시도해주세요.';
-      setMessages((prev) => [...prev, { id: Date.now() + 1, sender: 'agent', text: replyText }]);
-    }
-
-    await speakThenContinue(replyText);
+    await requestChatReply(transcript);
   };
 
   // 녹음 내내 SILENCE_THRESHOLD를 넘는 소리가 한 번도 없었던 경우: STT를 아예 호출하지 않고
@@ -1014,6 +1005,40 @@ export default function AirPodsLog() {
   const handleMicClick = () => {
     if (conversationState !== 'listening') return;
     stopListeningAndProcess();
+  };
+
+  const handleRetryRequest = async () => {
+    const failedRequest = failedRequestRef.current;
+    if (!failedRequest || conversationState === 'processing') return;
+
+    if (mediaRecorderRef.current?.state === 'recording') {
+      pendingActionRef.current = 'discard';
+      mediaRecorderRef.current.stop();
+    }
+    clearRequestError();
+
+    if (failedRequest.type === 'stt') {
+      await processVoiceMessage(failedRequest.audioBlob, { fromBargeIn: failedRequest.fromBargeIn });
+      return;
+    }
+    if (failedRequest.type === 'chat') {
+      await requestChatReply(failedRequest.text);
+      return;
+    }
+    if (failedRequest.type === 'tts') {
+      setConversationState('processing');
+      const interrupted = await playReply(failedRequest.text, failedRequest.message);
+      if (!interrupted && sessionAliveRef.current) {
+        if (conversationActiveRef.current && !voiceDisabledRef.current) startListening();
+        else setConversationState('idle');
+      }
+    }
+  };
+
+  const handleDismissRequestError = () => {
+    clearRequestError();
+    if (conversationActiveRef.current && !voiceDisabledRef.current) startListening();
+    else setConversationState('idle');
   };
 
   // 상태와 무관하게 항상 눌러서 대화를 끝내고, 생성된 세션이 있으면 리캡으로 이동한다.
@@ -1173,6 +1198,21 @@ export default function AirPodsLog() {
         )}
         <div ref={chatEndRef} />
       </div>
+
+      {requestError && (
+        <div className={`request-error request-error--${requestError.code}`} role="alert">
+          <div className="request-error-copy">
+            <strong>{requestError.title}</strong>
+            <span>{requestError.message}</span>
+          </div>
+          <div className="request-error-actions">
+            {failedRequestRef.current && (
+              <button type="button" onClick={handleRetryRequest}>다시 시도</button>
+            )}
+            <button type="button" onClick={handleDismissRequestError}>닫기</button>
+          </div>
+        </div>
+      )}
 
       {/* 하단 입력 영역 */}
       <div className="input-area">

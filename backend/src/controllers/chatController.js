@@ -19,9 +19,11 @@ export async function postChat(req, res, next) {
       return res.status(404).json({ message: '세션을 찾을 수 없습니다.' });
     }
 
-    await appendTurn(sessionId, 'user', message);
+    // AI가 503 등으로 답변 생성에 실패한 경우 사용자의 같은 메시지가 DB에 먼저 저장되어
+    // 재시도 때 중복되는 일을 줄이기 위해, 답변 생성 성공 후 한 턴을 저장한다.
     const history = [...session.history, { role: 'user', parts: [{ text: message }] }];
     const reply = await generateReply(history, session.situation);
+    await appendTurn(sessionId, 'user', message);
     const messageId = await appendTurn(sessionId, 'model', reply);
     res.json({ reply, messageId });
   } catch (err) {

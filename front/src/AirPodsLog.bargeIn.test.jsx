@@ -17,7 +17,7 @@
 import React, { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { screen, waitFor } from '@testing-library/dom';
+import { fireEvent, screen, waitFor } from '@testing-library/dom';
 import { MemoryRouter } from 'react-router-dom';
 import AirPodsLog from './AirPodsLog.jsx';
 
@@ -120,6 +120,7 @@ let ttsAbortSignal;
 let getUserMediaMock;
 
 beforeEach(() => {
+  window.localStorage.clear();
   rafCallbacks = new Map();
   rafId = 0;
   clock = 0;
@@ -301,5 +302,50 @@ describe('barge-in 통합 동작 (docs/nth_wk/Barkeinplan.md Phase 1)', () => {
     expect(screen.getByText('말하는 중...')).toBeInTheDocument();
     expect(HTMLMediaElement.prototype.pause).not.toHaveBeenCalled();
     expect(ttsAbortSignal.aborted).toBe(false);
+  });
+});
+
+describe('요청 오류 복구', () => {
+  it('채팅 요청이 503이면 원인을 안내하고 같은 메시지를 다시 시도한다', async () => {
+    window.localStorage.setItem('airpodslog.voiceDisabledUntil', String(Date.now() + 60_000));
+    let chatAttempts = 0;
+    fetchMock.mockImplementation((url) => {
+      if (url === '/api/session') {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ sessionId: 'sess-1' }) });
+      }
+      if (url === '/api/chat') {
+        chatAttempts += 1;
+        if (chatAttempts === 1) {
+          return Promise.resolve({
+            ok: false,
+            status: 503,
+            json: () => Promise.resolve({ message: 'AI 서비스가 일시적으로 요청을 처리할 수 없습니다.' }),
+          });
+        }
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ reply: '다시 연결됐어. 계속 이야기해보자.', messageId: 'msg-2' }),
+        });
+      }
+      return Promise.reject(new Error(`unexpected fetch: ${url}`));
+    });
+
+    renderAtChat();
+    await act(async () => {
+      screen.getByText('그냥 대화').click();
+    });
+
+    const input = await screen.findByPlaceholderText('메시지 입력...');
+    fireEvent.change(input, { target: { value: '오늘 너무 힘들었어' } });
+    fireEvent.click(screen.getByRole('button', { name: '전송' }));
+
+    expect(await screen.findByText('AI가 잠시 바빠요')).toBeTruthy();
+    expect(screen.getByText(/서비스가 일시적으로 요청을 처리하지 못하고 있어요/)).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: '다시 시도' }));
+
+    expect(await screen.findByText('다시 연결됐어. 계속 이야기해보자.')).toBeTruthy();
+    expect(chatAttempts).toBe(2);
+    expect(screen.getAllByText('오늘 너무 힘들었어')).toHaveLength(1);
   });
 });

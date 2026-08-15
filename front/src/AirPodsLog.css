@@ -576,6 +576,70 @@
 }
 
 /* ===== 입력 영역 ===== */
+.request-error {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  background: rgba(224, 168, 62, 0.09);
+  border-top: 1px solid var(--color-gold-dim);
+  color: var(--text-primary);
+}
+
+.request-error--unavailable,
+.request-error--network,
+.request-error--timeout {
+  background: rgba(45, 212, 167, 0.08);
+  border-top-color: var(--color-teal-dim);
+}
+
+.request-error-copy {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  text-align: left;
+}
+
+.request-error-copy strong {
+  color: var(--color-white);
+  font-size: var(--fs-body);
+}
+
+.request-error-copy span {
+  color: var(--text-secondary);
+  font-size: var(--fs-caption);
+  line-height: 1.4;
+}
+
+.request-error-actions {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.request-error-actions button {
+  background: transparent;
+  border: none;
+  color: var(--color-teal);
+  font-family: var(--font-label);
+  font-size: var(--fs-caption);
+  cursor: pointer;
+  padding: 2px;
+}
+
+.request-error-actions button:last-child {
+  color: var(--text-muted);
+}
+
+.request-error-actions button:hover,
+.request-error-actions button:focus-visible {
+  color: var(--color-white);
+  outline: none;
+}
+
 .input-area {
   padding: var(--space-md);
   background: var(--color-bg-elevated);
