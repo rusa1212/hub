@@ -42,15 +42,26 @@ export async function getSessionById(req, res, next) {
 export async function postSessionSummary(req, res, next) {
   try {
     const session = await getSession(req.params.id);
-    if (!session || !session.userId || session.userId !== req.user.id) {
+    if (!session || (session.userId && session.userId !== req.user?.id)) {
       return res.status(404).json({ message: '세션을 찾을 수 없습니다.' });
     }
-    if (session.history.length === 0) {
-      return res.status(204).send();
+
+    let summary = session.summary;
+    if (!summary && session.history.length > 0) {
+      summary = await summarizeSession(session.history);
+      await setSessionSummary(req.params.id, summary);
     }
-    const summary = await summarizeSession(session.history);
-    await setSessionSummary(req.params.id, summary);
-    res.json({ summary });
+
+    const userMessageCount = session.history.filter((message) => message.role === 'user').length;
+    res.json({
+      sessionId: req.params.id,
+      situation: session.situation,
+      summary: summary || null,
+      messageCount: session.history.length,
+      userMessageCount,
+      createdAt: session.createdAt,
+      endedAt: session.lastActiveAt,
+    });
   } catch (err) {
     next(err);
   }
