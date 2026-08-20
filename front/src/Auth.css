@@ -285,6 +285,40 @@
   text-align: left;
 }
 
+.history-filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+}
+
+.history-filter-chip {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: transparent;
+  border: 1px solid var(--line-neutral);
+  border-radius: var(--radius-pill);
+  color: var(--text-secondary);
+  font-family: var(--font-body);
+  font-size: var(--fs-caption);
+  padding: 4px 10px;
+  cursor: pointer;
+  transition: border-color 0.2s ease, color 0.2s ease;
+}
+
+.history-filter-chip:hover,
+.history-filter-chip:focus-visible {
+  border-color: var(--color-teal);
+  color: var(--color-teal);
+  outline: none;
+}
+
+.history-filter-chip--active {
+  border-color: var(--color-teal);
+  color: var(--color-teal);
+  background: rgba(45, 212, 167, 0.1);
+}
+
 .history-status-row {
   display: flex;
   align-items: center;
@@ -321,7 +355,15 @@
   gap: var(--space-sm);
 }
 
+.history-item-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
 .history-item {
+  flex: 1;
+  min-width: 0;
   width: 100%;
   display: flex;
   align-items: center;
@@ -334,6 +376,28 @@
   font-family: var(--font-body);
   cursor: pointer;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.history-item-delete {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid var(--line-neutral);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: border-color 0.2s ease, color 0.2s ease;
+}
+
+.history-item-delete:hover,
+.history-item-delete:focus-visible {
+  border-color: var(--color-gold-dim);
+  color: var(--color-gold);
+  outline: none;
 }
 
 .history-item:hover,
@@ -401,6 +465,31 @@
   margin-top: auto;
   padding-top: var(--space-md);
   border-top: 1px solid var(--line-neutral);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.history-clear-button {
+  width: 100%;
+  background: transparent;
+  border: 1px solid var(--line-neutral);
+  color: var(--text-secondary);
+  font-family: var(--font-label);
+  font-size: var(--fs-caption);
+  letter-spacing: var(--letter-spacing-label);
+  text-transform: uppercase;
+  padding: var(--space-sm);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: border-color 0.2s ease, color 0.2s ease;
+}
+
+.history-clear-button:hover,
+.history-clear-button:focus-visible {
+  border-color: var(--color-teal);
+  color: var(--color-teal);
+  outline: none;
 }
 
 .account-delete-button {

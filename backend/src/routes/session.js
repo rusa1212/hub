@@ -3,16 +3,18 @@ import { Router } from 'express';
 import {
   postSession,
   getSessionById,
+  deleteSessionById,
   postSessionSummary,
   postSessionInterruption,
 } from '../controllers/sessionController.js';
-import { optionalAuth } from '../middleware/auth.js';
+import { optionalAuth, requireAuth } from '../middleware/auth.js';
 import { sessionCreateLimiter } from '../middleware/rateLimit.js';
 
 const router = Router();
 
 router.post('/', optionalAuth, sessionCreateLimiter, postSession);
 router.get('/:id', optionalAuth, getSessionById);
+router.delete('/:id', requireAuth, deleteSessionById);
 router.post('/:id/summary', optionalAuth, postSessionSummary);
 router.post('/:id/interruption', optionalAuth, postSessionInterruption);
 

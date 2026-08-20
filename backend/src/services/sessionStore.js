@@ -75,6 +75,13 @@ export async function deleteSessionsByUser(userId) {
   if (error) throw error;
 }
 
+// 개별 세션 삭제 (메시지는 ON DELETE CASCADE로 함께 삭제됨). 소유권 확인은 컨트롤러에서 처리.
+export async function deleteSession(sessionId) {
+  const supabase = getSupabase();
+  const { error } = await supabase.from('sessions').delete().eq('id', sessionId);
+  if (error) throw error;
+}
+
 export async function appendTurn(sessionId, role, text) {
   const supabase = getSupabase();
   const dbRole = GEMINI_TO_DB_ROLE[role] ?? role;
