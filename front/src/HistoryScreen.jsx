@@ -2,8 +2,8 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from './AuthContext';
-import { getMySessions, getSessionDetail, deleteAccount } from './api';
-import { SITUATION_META_BY_ID } from './situations';
+import { getMySessions, getSessionDetail, deleteAccount, deleteSession, deleteMySessions } from './api';
+import { SITUATIONS, SITUATION_META_BY_ID } from './situations';
 import './Auth.css';
 
 function formatDate(iso) {
@@ -54,6 +54,7 @@ export default function HistoryScreen() {
   const [selectedId, setSelectedId] = useState(null);
   const [detail, setDetail] = useState(null);
   const [detailError, setDetailError] = useState('');
+  const [activeFilter, setActiveFilter] = useState('all');
 
   useEffect(() => {
     if (authLoading || !user) return;
@@ -92,7 +93,41 @@ export default function HistoryScreen() {
     }
   };
 
+  const handleDeleteSession = async (id, e) => {
+    e.stopPropagation();
+    if (!window.confirm('이 대화 기록을 삭제할까요? 되돌릴 수 없어요.')) {
+      return;
+    }
+    try {
+      await deleteSession(id);
+      setSessions((prev) => prev.filter((s) => s.id !== id));
+      if (selectedId === id) {
+        setSelectedId(null);
+        setDetail(null);
+      }
+    } catch (err) {
+      setError(err.message || '기록 삭제에 실패했어요.');
+    }
+  };
+
+  const handleDeleteAllSessions = async () => {
+    if (!window.confirm('대화 기록을 전부 삭제할까요? 계정은 유지되고 대화 기록만 지워지며, 되돌릴 수 없어요.')) {
+      return;
+    }
+    try {
+      await deleteMySessions();
+      setSessions([]);
+      setSelectedId(null);
+      setDetail(null);
+    } catch (err) {
+      setError(err.message || '기록 삭제에 실패했어요.');
+    }
+  };
+
   const streak = computeStreak(sessions);
+  const filterOptions = [{ id: 'all', emoji: '🗂️', label: '전체' }, ...SITUATIONS.map((s) => ({ id: s.id ?? 'default', emoji: s.emoji, label: s.label }))];
+  const filteredSessions =
+    activeFilter === 'all' ? sessions : sessions.filter((s) => (s.persona_id ?? 'default') === activeFilter);
 
   if (!authLoading && !user) {
     return (
@@ -129,6 +164,21 @@ export default function HistoryScreen() {
       )}
       <p className="history-notice">🔒 로그인 전에 나눈 대화는 기록되지 않아요. 이 화면에는 로그인 이후의 세션만 보여요.</p>
 
+      {!loading && sessions.length > 0 && (
+        <div className="history-filter-row" role="group" aria-label="상황별 필터">
+          {filterOptions.map((opt) => (
+            <button
+              key={opt.id}
+              type="button"
+              className={`history-filter-chip ${activeFilter === opt.id ? 'history-filter-chip--active' : ''}`}
+              onClick={() => setActiveFilter(opt.id)}
+            >
+              <span aria-hidden="true">{opt.emoji}</span> {opt.label}
+            </button>
+          ))}
+        </div>
+      )}
+
       {loading && (
         <div className="history-status-row">
           <span className="auth-spinner" aria-hidden="true" /> 불러오는 중...
@@ -147,26 +197,42 @@ export default function HistoryScreen() {
         </div>
       )}
 
+      {!loading && sessions.length > 0 && filteredSessions.length === 0 && (
+        <div className="history-empty">
+          <p className="auth-subtitle">이 카테고리에는 대화 기록이 없어요.</p>
+        </div>
+      )}
+
       <ul className="history-list">
-        {sessions.map((s) => {
+        {filteredSessions.map((s) => {
           const meta = SITUATION_META_BY_ID[s.persona_id ?? 'default'] ?? { emoji: '💬', label: '대화' };
           const isActive = selectedId === s.id;
           return (
             <li key={s.id} className="history-list-item">
-              <button
-                className={`history-item ${isActive ? 'history-item--active' : ''}`}
-                onClick={() => handleSelect(s.id)}
-              >
-                <span className="history-item-emoji" aria-hidden="true">{meta.emoji}</span>
-                <span className="history-item-body">
-                  <span className="history-item-label">{meta.label}</span>
-                  {s.summary && <span className="history-item-summary">{s.summary}</span>}
-                  <span className="history-item-date">{formatDate(s.last_active_at)}</span>
-                </span>
-                <span className={`history-item-chevron ${isActive ? 'history-item-chevron--open' : ''}`} aria-hidden="true">
-                  ⌄
-                </span>
-              </button>
+              <div className="history-item-row">
+                <button
+                  className={`history-item ${isActive ? 'history-item--active' : ''}`}
+                  onClick={() => handleSelect(s.id)}
+                >
+                  <span className="history-item-emoji" aria-hidden="true">{meta.emoji}</span>
+                  <span className="history-item-body">
+                    <span className="history-item-label">{meta.label}</span>
+                    {s.summary && <span className="history-item-summary">{s.summary}</span>}
+                    <span className="history-item-date">{formatDate(s.last_active_at)}</span>
+                  </span>
+                  <span className={`history-item-chevron ${isActive ? 'history-item-chevron--open' : ''}`} aria-hidden="true">
+                    ⌄
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  className="history-item-delete"
+                  onClick={(e) => handleDeleteSession(s.id, e)}
+                  aria-label="이 대화 기록 삭제"
+                >
+                  🗑
+                </button>
+              </div>
               {isActive && (
                 <div className="history-detail">
                   {detailError && <p className="auth-message auth-message--error">⚠ {detailError}</p>}
@@ -194,6 +260,11 @@ export default function HistoryScreen() {
       </ul>
 
       <div className="history-danger-zone">
+        {sessions.length > 0 && (
+          <button className="history-clear-button" type="button" onClick={handleDeleteAllSessions}>
+            🗑 기록 전체 삭제
+          </button>
+        )}
         <button className="account-delete-button" type="button" onClick={handleDeleteAccount}>
           🗑 계정 삭제
         </button>

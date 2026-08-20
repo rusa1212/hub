@@ -3,6 +3,7 @@ import {
   createSession,
   getSession,
   getSessionsByUser,
+  deleteSession,
   deleteSessionsByUser,
   setSessionSummary,
   recordInterruption,
@@ -82,6 +83,20 @@ export async function postSessionInterruption(req, res, next) {
       return res.status(404).json({ message: '중단할 assistant 메시지를 찾을 수 없습니다.' });
     }
     res.status(201).json({ recorded: true });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// 로그인 사용자 본인 세션 개별 삭제. 본인 소유가 아니면 getSessionById와 동일하게 404로 응답.
+export async function deleteSessionById(req, res, next) {
+  try {
+    const session = await getSession(req.params.id);
+    if (!session || session.userId !== req.user.id) {
+      return res.status(404).json({ message: '세션을 찾을 수 없습니다.' });
+    }
+    await deleteSession(req.params.id);
+    res.status(204).send();
   } catch (err) {
     next(err);
   }

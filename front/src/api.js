@@ -66,6 +66,17 @@ export async function deleteAccount() {
   }
 }
 
+export async function deleteSession(sessionId) {
+  const res = await fetch(`/api/session/${sessionId}`, {
+    method: 'DELETE',
+    headers: await authHeaders(),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.message || `요청 실패 (${res.status})`);
+  }
+}
+
 export async function deleteMySessions() {
   const res = await fetch('/api/sessions/mine', {
     method: 'DELETE',
