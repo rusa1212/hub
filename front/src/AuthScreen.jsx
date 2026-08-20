@@ -1,44 +1,57 @@
-// 로그인/회원가입 화면 (이메일/비밀번호)
+// 로그인/회원가입 화면 (아이디/비밀번호). 이메일은 내부적으로만 쓰이고 사용자에게는 노출되지 않는다.
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from './AuthContext';
 import './Auth.css';
 
-// 이메일/비밀번호 로그인·회원가입. 로그인은 선택사항이라 언제든 건너뛸 수 있음
-// (docs/3rd_wk/Authplan.md 1절).
+const USERNAME_PATTERN = /^[a-zA-Z0-9_]{3,20}$/;
+
 export default function AuthScreen() {
   const navigate = useNavigate();
   const { signIn, signUp } = useAuth();
   const [mode, setMode] = useState('signIn'); // 'signIn' | 'signUp'
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [passwordConfirm, setPasswordConfirm] = useState('');
   const [error, setError] = useState('');
-  const [info, setInfo] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   const switchMode = (next) => {
     if (next === mode) return;
     setMode(next);
     setError('');
-    setInfo('');
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
-    setInfo('');
+
+    if (mode === 'signUp') {
+      if (!USERNAME_PATTERN.test(username)) {
+        setError('아이디는 영문/숫자/밑줄로 3~20자로 입력해주세요.');
+        return;
+      }
+      if (password !== passwordConfirm) {
+        setError('비밀번호가 일치하지 않아요.');
+        return;
+      }
+    }
+
     setSubmitting(true);
     try {
       if (mode === 'signIn') {
-        const { error: signInError } = await signIn(email, password);
+        const { error: signInError } = await signIn(username, password);
         if (signInError) throw signInError;
-        navigate('/');
       } else {
-        const { error: signUpError } = await signUp(email, password);
+        const { data, error: signUpError } = await signUp(username, password);
         if (signUpError) throw signUpError;
-        setInfo('가입 확인 이메일을 보냈어요. 확인 후 로그인해주세요.');
-        setMode('signIn');
+        if (!data.session) {
+          throw new Error(
+            '이메일 확인이 필요하게 설정되어 있어 가입이 완료되지 않았어요. Supabase 대시보드 Authentication 설정에서 "Confirm email"을 꺼주세요.'
+          );
+        }
       }
+      navigate('/');
     } catch (err) {
       setError(err.message || '요청 중 오류가 발생했어요.');
     } finally {
@@ -83,14 +96,15 @@ export default function AuthScreen() {
 
       <form className="auth-form" onSubmit={handleSubmit}>
         <label className="auth-field">
-          <span className="auth-field-icon" aria-hidden="true">✉️</span>
+          <span className="auth-field-icon" aria-hidden="true">👤</span>
           <input
             className="auth-input"
-            type="email"
-            placeholder="이메일"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            autoComplete="email"
+            type="text"
+            placeholder="아이디"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            autoComplete="username"
+            maxLength={20}
             required
           />
         </label>
@@ -107,9 +121,23 @@ export default function AuthScreen() {
             required
           />
         </label>
+        {mode === 'signUp' && (
+          <label className="auth-field">
+            <span className="auth-field-icon" aria-hidden="true">🔒</span>
+            <input
+              className="auth-input"
+              type="password"
+              placeholder="비밀번호 확인"
+              value={passwordConfirm}
+              onChange={(e) => setPasswordConfirm(e.target.value)}
+              autoComplete="new-password"
+              minLength={6}
+              required
+            />
+          </label>
+        )}
 
         {error && <p className="auth-message auth-message--error">⚠ {error}</p>}
-        {info && <p className="auth-message auth-message--info">✓ {info}</p>}
 
         <button className="btn-primary auth-submit" type="submit" disabled={submitting}>
           {submitting ? (

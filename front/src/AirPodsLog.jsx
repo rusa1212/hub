@@ -1265,9 +1265,11 @@ export default function AirPodsLog() {
           {user ? (
             <div className="sidebar-user">
               <span className="auth-status-avatar" aria-hidden="true">
-                {user.email?.[0]?.toUpperCase() ?? '?'}
+                {user.user_metadata?.username?.[0]?.toUpperCase() ?? '?'}
               </span>
-              <span className="sidebar-user-email" title={user.email}>{user.email}</span>
+              <span className="sidebar-user-email" title={user.user_metadata?.username}>
+                {user.user_metadata?.username}
+              </span>
             </div>
           ) : (
             <button type="button" className="sidebar-login-btn" onClick={() => navigate('/login')}>
