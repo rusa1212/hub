@@ -1,5 +1,6 @@
-// Supabase Bearer 토큰 검증 미들웨어: requireAuth(로그인 필수), optionalAuth(로그인 선택)
+// Supabase Bearer 토큰 검증 미들웨어: requireAuth(로그인 필수), optionalAuth(로그인 선택), requireAdmin(관리자 전용)
 import { getSupabase } from '../services/db.js';
+import { isAdmin } from '../services/profileStore.js';
 
 async function verify(req) {
   const header = req.headers.authorization;
@@ -24,5 +25,20 @@ export async function requireAuth(req, res, next) {
 // (예: 세션 생성 시 로그인 상태면 user_id를 연결, 아니면 익명으로 진행)
 export async function optionalAuth(req, res, next) {
   req.user = await verify(req);
+  next();
+}
+
+// 관리자 전용 엔드포인트용. requireAuth 뒤에 붙여 쓴다 (req.user가 채워져 있어야 함).
+export async function requireAdmin(req, res, next) {
+  if (!(await isAdmin(req.user?.id))) {
+    return res.status(403).json({ message: '관리자만 접근할 수 있어요.' });
+  }
+  req.isAdmin = true;
+  next();
+}
+
+// 막지는 않고 관리자 여부만 req.isAdmin에 채운다 (프론트가 관리자 메뉴 노출 여부를 물을 때 사용).
+export async function attachAdminFlag(req, res, next) {
+  req.isAdmin = await isAdmin(req.user?.id);
   next();
 }

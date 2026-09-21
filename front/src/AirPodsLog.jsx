@@ -9,6 +9,7 @@ import {
   transcribeAudio,
   synthesizeSpeech,
   getMySessions,
+  getAdminMe,
   getSessionDetail,
   recordInterruption,
 } from './api';
@@ -21,6 +22,7 @@ import AuthScreen from './AuthScreen';
 import HistoryScreen from './HistoryScreen';
 import SettingsScreen from './SettingsScreen';
 import RecapScreen from './RecapScreen';
+import AdminScreen from './AdminScreen';
 import { SITUATIONS, SITUATION_META_BY_ID } from './situations';
 import './AirPodsLog.css';
 import './Auth.css';
@@ -96,6 +98,8 @@ export default function AirPodsLog() {
   const [listeningPhase, setListeningPhase] = useState('waiting');
   // 요청 실패 원인과 재시도 UI. 실제 재시도 데이터(텍스트/Blob)는 렌더링과 무관하므로 ref에 둔다.
   const [requestError, setRequestError] = useState(null);
+  // 로그인한 계정이 관리자면 사이드바에 관리자 메뉴를 노출한다 (권한 판단 자체는 백엔드가 함)
+  const [isAdmin, setIsAdmin] = useState(false);
 
   const chatEndRef = useRef(null);
   const audioPlayerRef = useRef(null);
@@ -313,6 +317,25 @@ export default function AirPodsLog() {
       })
       .catch((err) => console.error('최근 대화 조회 실패:', err));
   }, [location.pathname, user]);
+
+  // 로그인 계정이 바뀔 때마다 관리자 여부를 백엔드에 확인 (실패하면 일반 사용자로 간주)
+  useEffect(() => {
+    if (!user) {
+      setIsAdmin(false);
+      return;
+    }
+    let cancelled = false;
+    getAdminMe()
+      .then(({ isAdmin: admin }) => {
+        if (!cancelled) setIsAdmin(admin === true);
+      })
+      .catch(() => {
+        if (!cancelled) setIsAdmin(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
 
   const handleStart = () => {
     navigate('/situation');
@@ -1284,6 +1307,11 @@ export default function AirPodsLog() {
           <button type="button" className="sidebar-nav-item" onClick={() => navigate('/settings')}>
             <span aria-hidden="true">⚙️</span> 설정
           </button>
+          {isAdmin && (
+            <button type="button" className="sidebar-nav-item" onClick={() => navigate('/admin')}>
+              <span aria-hidden="true">🛠️</span> 관리자
+            </button>
+          )}
         </div>
         {user && (
           <button type="button" className="sidebar-logout-btn" onClick={signOut}>
@@ -1304,6 +1332,7 @@ export default function AirPodsLog() {
           <Route path="/login" element={<AuthScreen />} />
           <Route path="/history" element={<HistoryScreen />} />
           <Route path="/settings" element={<SettingsScreen />} />
+          <Route path="/admin" element={<AdminScreen />} />
           <Route path="/recap/:sessionId" element={<RecapScreen onContinue={handleResumeSession} />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

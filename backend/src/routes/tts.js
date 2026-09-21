@@ -1,11 +1,12 @@
-// 음성 합성(TTS) 라우트: POST /api/tts, 텍스트를 오디오(WAV)로 변환해 반환 (rate limit 적용)
+// 음성 합성(TTS) 라우트: POST /api/tts, 텍스트를 오디오(WAV)로 변환해 반환 (rate limit + 하루 사용 한도 적용)
 import { Router } from 'express';
 import { postTts } from '../controllers/ttsController.js';
 import { optionalAuth } from '../middleware/auth.js';
 import { ttsLimiter } from '../middleware/rateLimit.js';
+import { dailyQuota } from '../middleware/dailyQuota.js';
 
 const router = Router();
 
-router.post('/', optionalAuth, ttsLimiter, postTts);
+router.post('/', optionalAuth, ttsLimiter, dailyQuota('tts'), postTts);
 
 export default router;
