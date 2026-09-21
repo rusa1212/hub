@@ -1,5 +1,5 @@
-// 관리자 전용 화면: 오늘 STT/TTS 사용량과 남은 횟수, 최근 7일 추이를 보여준다.
-// 관리자가 아닌 계정으로 열면 백엔드가 403을 주므로 안내 문구만 보여주고 끝낸다.
+// 관리자 전용 화면: 프로젝트 전체 쿼터 잔여량(실제 Gemini 한도)과 사용자별 사용량,
+// 최근 7일 추이를 보여준다. 관리자가 아닌 계정으로 열면 백엔드가 403을 주므로 안내만 보여준다.
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from './AuthContext';
@@ -17,8 +17,9 @@ function formatTime(iso) {
   return new Date(iso).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
 }
 
-// 남은 횟수 비율에 따라 색을 바꿔, 한도에 가까워진 계정이 눈에 띄게 한다.
-function levelOf({ used, limit }) {
+// 남은 비율에 따라 색을 바꿔, 한도에 가까워진 쪽이 눈에 띄게 한다. 한도를 모르면 중립색.
+function levelOf(used, limit) {
+  if (limit == null) return 'unknown';
   const ratio = limit > 0 ? used / limit : 0;
   if (ratio >= 1) return 'danger';
   if (ratio >= 0.7) return 'warn';
@@ -108,26 +109,45 @@ export default function AdminScreen() {
       {data && !loading && (
         <>
           <p className="admin-meta">
-            {data.date} 기준 ({data.timezone}) · 가입 {data.registeredUserCount}명 · 오늘 사용 {data.activeUserCount}명
+            {data.date} 기준 ({data.timezone}) · 가입 {data.registeredUserCount}명 · 오늘 사용{' '}
+            {data.activeUserCount}명
           </p>
 
+          <h3 className="admin-section-title">오늘 남은 호출 (서비스 전체)</h3>
           <div className="admin-card-row">
             {KINDS.map((kind) => {
-              const used = data.totals[kind.id];
-              const limit = data.limits[kind.id];
+              const stat = data.project[kind.id];
+              const level = levelOf(stat.used, stat.quota);
               return (
-                <div key={kind.id} className="admin-card">
+                <div key={kind.id} className={`admin-card admin-usage-row--${level}`}>
                   <span className="admin-card-label">
                     <span aria-hidden="true">{kind.emoji}</span> {kind.label}
                   </span>
-                  <span className="admin-card-value">{used}회</span>
-                  <span className="admin-card-sub">오늘 전체 호출 · 1인 하루 한도 {limit}회</span>
+                  <span className="admin-card-value">
+                    {stat.remaining == null ? `${stat.used}회 사용` : `${stat.remaining}회 남음`}
+                  </span>
+                  <span className="admin-usage-bar">
+                    <span
+                      className="admin-usage-bar-fill"
+                      style={{ width: stat.quota ? `${Math.min(100, (stat.used / stat.quota) * 100)}%` : '0%' }}
+                    />
+                  </span>
+                  <span className="admin-card-sub">
+                    {stat.quota == null
+                      ? '하루 쿼터 미설정 — 사용량만 집계 중'
+                      : `오늘 ${stat.used}회 사용 / 하루 ${stat.quota}회`}
+                  </span>
                 </div>
               );
             })}
           </div>
+          <p className="admin-note">
+            ⓘ Gemini 무료 티어 쿼터는 사용자별이 아니라 <strong>API 키(프로젝트) 전체</strong> 기준이에요. 정확한
+            한도는 AI Studio의 Rate limits 페이지에서 확인해 <code>backend/.env</code>의{' '}
+            <code>STT_PROJECT_DAILY_QUOTA</code> / <code>TTS_PROJECT_DAILY_QUOTA</code>에 넣으면 이 숫자에 반영돼요.
+          </p>
 
-          <h3 className="admin-section-title">사용자별 잔여 횟수</h3>
+          <h3 className="admin-section-title">사용자별 사용량 (1인 상한 기준)</h3>
           {data.users.length === 0 ? (
             <p className="auth-subtitle">오늘은 아직 STT/TTS 호출이 없어요.</p>
           ) : (
@@ -144,19 +164,22 @@ export default function AdminScreen() {
                   {KINDS.map((kind) => {
                     const stat = u.usage[kind.id];
                     return (
-                      <div key={kind.id} className={`admin-usage-row admin-usage-row--${levelOf(stat)}`}>
+                      <div
+                        key={kind.id}
+                        className={`admin-usage-row admin-usage-row--${levelOf(stat.used, stat.limit)}`}
+                      >
                         <span className="admin-usage-kind" aria-hidden="true">
                           {kind.emoji}
                         </span>
                         <span className="admin-usage-bar">
                           <span
                             className="admin-usage-bar-fill"
-                            style={{ width: `${Math.min(100, (stat.used / stat.limit) * 100)}%` }}
+                            style={{ width: stat.limit ? `${Math.min(100, (stat.used / stat.limit) * 100)}%` : '0%' }}
                           />
                         </span>
                         <span className="admin-usage-num">
-                          {stat.remaining}회 남음
-                          <span className="admin-usage-den"> / {stat.limit}</span>
+                          {stat.used}회
+                          <span className="admin-usage-den">{stat.limit == null ? '' : ` / ${stat.limit}`}</span>
                         </span>
                       </div>
                     );
