@@ -13,6 +13,7 @@ dotenv.config({ path: path.join(__dirname, '..', '.env') });
 import sessionRouter from './routes/session.js';
 import sessionsRouter from './routes/sessions.js';
 import accountRouter from './routes/account.js';
+import adminRouter from './routes/admin.js';
 import chatRouter from './routes/chat.js';
 import sttRouter from './routes/stt.js';
 import ttsRouter from './routes/tts.js';
@@ -32,6 +33,7 @@ app.get('/health', (req, res) => {
 app.use('/api/session', sessionRouter);
 app.use('/api/sessions', sessionsRouter);
 app.use('/api/account', accountRouter);
+app.use('/api/admin', adminRouter);
 app.use('/api/chat', chatRouter);
 app.use('/api/stt', sttRouter);
 app.use('/api/tts', ttsRouter);

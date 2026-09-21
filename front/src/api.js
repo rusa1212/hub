@@ -55,6 +55,20 @@ export async function recordInterruption(sessionId, { messageId = null, playback
   });
 }
 
+// 로그인한 사용자가 관리자인지 (사이드바 관리자 메뉴 노출 여부 판단용)
+export async function getAdminMe() {
+  return request('/api/admin/me', {
+    headers: await authHeaders(),
+  });
+}
+
+// 관리자 전용: 오늘 STT/TTS 사용/잔여 현황
+export async function getAdminUsage() {
+  return request('/api/admin/usage', {
+    headers: await authHeaders(),
+  });
+}
+
 export async function deleteAccount() {
   const res = await fetch('/api/account', {
     method: 'DELETE',
