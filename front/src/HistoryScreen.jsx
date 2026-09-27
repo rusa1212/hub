@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from './AuthContext';
 import { getMySessions, getSessionDetail, deleteAccount, deleteSession, deleteMySessions } from './api';
-import { SITUATIONS, SITUATION_META_BY_ID } from './situations';
+import { useSituations } from './SituationsContext';
 import './Auth.css';
 
 function formatDate(iso) {
@@ -48,6 +48,7 @@ function computeStreak(sessions) {
 export default function HistoryScreen() {
   const navigate = useNavigate();
   const { user, loading: authLoading, signOut } = useAuth();
+  const { situations, getSituationMeta } = useSituations();
   const [sessions, setSessions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -125,7 +126,7 @@ export default function HistoryScreen() {
   };
 
   const streak = computeStreak(sessions);
-  const filterOptions = [{ id: 'all', emoji: '🗂️', label: '전체' }, ...SITUATIONS.map((s) => ({ id: s.id ?? 'default', emoji: s.emoji, label: s.label }))];
+  const filterOptions = [{ id: 'all', emoji: '🗂️', label: '전체' }, ...situations.map((s) => ({ id: s.id ?? 'default', emoji: s.emoji, label: s.label }))];
   const filteredSessions =
     activeFilter === 'all' ? sessions : sessions.filter((s) => (s.persona_id ?? 'default') === activeFilter);
 
@@ -205,7 +206,7 @@ export default function HistoryScreen() {
 
       <ul className="history-list">
         {filteredSessions.map((s) => {
-          const meta = SITUATION_META_BY_ID[s.persona_id ?? 'default'] ?? { emoji: '💬', label: '대화' };
+          const meta = getSituationMeta(s.persona_id);
           const isActive = selectedId === s.id;
           return (
             <li key={s.id} className="history-list-item">

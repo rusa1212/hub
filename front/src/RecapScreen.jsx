@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { getSessionDetail, summarizeSession } from './api';
-import { SITUATION_META_BY_ID } from './situations';
+import { useSituations } from './SituationsContext';
 import './RecapScreen.css';
 
 function formatDuration(createdAt, endedAt) {
@@ -16,6 +16,7 @@ function formatDuration(createdAt, endedAt) {
 export default function RecapScreen({ onContinue }) {
   const { sessionId } = useParams();
   const navigate = useNavigate();
+  const { getSituationMeta } = useSituations();
   const [recap, setRecap] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -55,7 +56,7 @@ export default function RecapScreen({ onContinue }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId]);
 
-  const situationMeta = SITUATION_META_BY_ID[recap?.situation ?? 'default'] ?? SITUATION_META_BY_ID.default;
+  const situationMeta = getSituationMeta(recap?.situation);
   const duration = recap ? formatDuration(recap.createdAt, recap.endedAt) : null;
   const hasConversation = (recap?.userMessageCount ?? 0) > 0;
   const statText = [duration, hasConversation ? `내가 건넨 말 ${recap.userMessageCount}회` : null]

@@ -1,6 +1,7 @@
 // 대화 메시지 처리 컨트롤러: 세션 소유자 확인 후 Gemini에 메시지를 보내고 응답을 히스토리에 저장
 import { getSession, appendTurn } from '../services/sessionStore.js';
 import { generateReply } from '../services/geminiService.js';
+import { getPersona } from '../services/personaStore.js';
 
 export async function postChat(req, res, next) {
   const { sessionId, message } = req.body;
@@ -22,7 +23,9 @@ export async function postChat(req, res, next) {
     // AI가 503 등으로 답변 생성에 실패한 경우 사용자의 같은 메시지가 DB에 먼저 저장되어
     // 재시도 때 중복되는 일을 줄이기 위해, 답변 생성 성공 후 한 턴을 저장한다.
     const history = [...session.history, { role: 'user', parts: [{ text: message }] }];
-    const reply = await generateReply(history, session.situation);
+    // 세션 도중 상황이 숨김(is_active=false) 처리돼도 이미 시작한 대화는 원래 상황 프롬프트를 유지한다.
+    const persona = await getPersona(session.situation);
+    const reply = await generateReply(history, persona);
     await appendTurn(sessionId, 'user', message);
     const messageId = await appendTurn(sessionId, 'model', reply);
     res.json({ reply, messageId });

@@ -51,38 +51,23 @@ const BASE_INSTRUCTION = `너는 "AirPods Log"라는 오디오 전용 에이전�
 const SITUATION_PERSONA_INSTRUCTION = `
 [페르소나]
 - 너는 단순 도우미가 아니라 "음악을 깊이 아는 친구"야. 사용자와 편하게 대화하다가, 맥락상 정말 자연스러운 순간에만 음악·콘텐츠를 추천해줘.
-- 음악 추천이 매 응답마다 반복되는 고정 멘트가 되면 안 돼. 정말 어울릴 때만 등장시키고, 그렇지 않을 땐 사용자의 이야기 자체에 집중해서 반응해줘. 대화를 억지로 음악 얘기로 유도하지 마.
-
-[상황 인식]
-- 사용자가 화면에서 직접 고른 상황에 맞춰 톤과 추천을 바꿔줘.
-  - "집중 모드" (공부·과제·업무 등 몰입이 필요한 상황): 집중에 방해되지 않는 차분한 톤, 짧고 간결한 응답, 가사 없는/잔잔한 콘텐츠 위주로 추천.
-  - "운동 중": 에너지 있고 빠른 템포의 톤, 텐션을 올려주는 콘텐츠 추천.
-  - "자기 전": 낮고 차분한 톤, 수면을 유도하는 잔잔한 콘텐츠 추천.
-  - "아침 기상": 산뜻하고 가벼운 톤으로 하루를 여는 느낌을 주고, 화면 대신 귀로 하루를 시작할 수 있게 도와줘.
-  - "이동 중": 대중교통·도보 등 안전이 우선인 상황이니 담백하고 짧은 응답을 유지하고, 이동하며 듣기 좋은 콘텐츠를 추천해줘.`;
+- 음악 추천이 매 응답마다 반복되는 고정 멘트가 되면 안 돼. 정말 어울릴 때만 등장시키고, 그렇지 않을 땐 사용자의 이야기 자체에 집중해서 반응해줘. 대화를 억지로 음악 얘기로 유도하지 마.`;
 
 // 상황을 고르지 않은 "그냥 대화": 음악 추천 컨셉 없이 평범한 대화 상대로만 행동
 const GENERAL_CHAT_INSTRUCTION = `
 [페르소나]
 - 특별한 컨셉이나 역할극 없이, 사용자와 편하게 이야기 나누는 대화 상대야. 음악이나 콘텐츠를 추천해야 한다는 압박 없이, 사용자가 꺼낸 이야기 자체에 집중해서 반응해줘.`;
 
-// 사용자가 화면에서 직접 고른 상황: 대화 문맥으로 추론하지 않고 세션 내내 고정 적용
-export const SITUATION_LABELS = {
-  studying: '집중 모드',
-  exercising: '운동 중',
-  sleeping: '자기 전',
-  morning: '아침 기상',
-  commuting: '이동 중',
-};
-
-function buildSystemInstruction(situation) {
-  const label = situation && SITUATION_LABELS[situation];
-  if (!label) return `${BASE_INSTRUCTION}\n${GENERAL_CHAT_INSTRUCTION}`;
+// persona: personaStore의 상황 정의 (null이면 "그냥 대화"). 사용자가 화면에서 직접 고른 상황이라
+// 대화 문맥으로 추론하지 않고 세션 내내 고정 적용한다. 상황별 톤/추천 규칙은 personas.prompt에서 온다.
+function buildSystemInstruction(persona) {
+  if (!persona) return `${BASE_INSTRUCTION}\n${GENERAL_CHAT_INSTRUCTION}`;
   return `${BASE_INSTRUCTION}
 ${SITUATION_PERSONA_INSTRUCTION}
 
 [현재 세션 상황]
-- 사용자가 화면에서 "${label}" 상황을 직접 선택했어. 대화 내내 위 상황 인식 규칙 중 "${label}"에 해당하는 톤과 추천 방향을 기본값으로 유지해.`;
+- 사용자가 화면에서 "${persona.label}" 상황을 직접 선택했어. 대화 내내 아래 톤과 추천 방향을 기본값으로 유지해.
+- ${persona.prompt}${persona.maxSentences ? `\n- 이 상황에서는 [응답 형식]의 1~3문장 규칙보다 우선해서, 반드시 ${persona.maxSentences}문장 이내로 답해.` : ''}`;
 }
 
 let client = null;
@@ -103,13 +88,13 @@ function toModelContents(history) {
   return history.map(({ role, parts }) => ({ role, parts }));
 }
 
-export async function generateReply(history, situation) {
+export async function generateReply(history, persona) {
   const ai = getClient();
   const response = await ai.models.generateContent({
     model: MODEL,
     contents: toModelContents(history),
     config: {
-      systemInstruction: buildSystemInstruction(situation),
+      systemInstruction: buildSystemInstruction(persona),
     },
   });
   return response.text;
@@ -142,19 +127,34 @@ export async function transcribeAudio(audioBuffer, mimeType) {
   return response.text?.trim() ?? '';
 }
 
-export async function synthesizeSpeech(text, voice) {
+// style: 상황별 말투 지시(personas.tts_style, 영어 부사구). Gemini TTS는 "Say <말투>: <본문>" 형태의
+// 지시를 읽지 않고 말투로만 반영한다. 없으면 본문만 그대로 읽는다.
+export function buildTtsPrompt(text, style) {
+  return style ? `Say ${style}: ${text}` : text;
+}
+
+export async function synthesizeSpeech(text, voice, style = null) {
   const ai = getClient();
   const voiceName = AVAILABLE_TTS_VOICES.includes(voice) ? voice : TTS_VOICE;
-  const response = await ai.models.generateContent({
-    model: TTS_MODEL,
-    contents: [{ role: 'user', parts: [{ text }] }],
-    config: {
-      responseModalities: [Modality.AUDIO],
-      speechConfig: {
-        voiceConfig: { prebuiltVoiceConfig: { voiceName } },
+  const request = (prompt) =>
+    ai.models.generateContent({
+      model: TTS_MODEL,
+      contents: [{ role: 'user', parts: [{ text: prompt }] }],
+      config: {
+        responseModalities: [Modality.AUDIO],
+        speechConfig: {
+          voiceConfig: { prebuiltVoiceConfig: { voiceName } },
+        },
       },
-    },
-  });
+    });
+
+  let response = await request(buildTtsPrompt(text, style));
+  // 말투 지시가 붙으면 본문이 멀쩡해도 finishReason=SAFETY로 오디오 없이 끝나는 경우가 있다
+  // (예: "like helping someone drift off to sleep" 같은 비유). 이때는 말투 없이 한 번만 다시 읽는다.
+  if (style && !response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data) {
+    console.warn(`TTS 말투 적용 실패(finishReason=${response.candidates?.[0]?.finishReason}), 말투 없이 재시도`);
+    response = await request(text);
+  }
 
   const inlineData = response.candidates?.[0]?.content?.parts?.[0]?.inlineData;
   if (!inlineData?.data) {
