@@ -100,6 +100,9 @@ export default function AirPodsLog() {
   // 재사용하므로, sessionId를 state로만 읽으면 이후 갱신된 값을 못 보고 stale closure에 갇힘.
   // 그래서 ref로도 동기화해서 항상 최신 값을 참조하도록 함.
   const sessionIdRef = useRef(null);
+  // 현재 세션의 상황 메타(SituationsContext). TTS 말투·무음 감지 기준을 상황별로 바꾸는 데 쓴다.
+  // 콜백 클로저가 최신 값을 읽을 수 있게 state가 아닌 ref로 둔다.
+  const situationRef = useRef(null);
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
   const objectUrlRef = useRef(null);
@@ -351,6 +354,9 @@ export default function AirPodsLog() {
     micAnalyserRef.current = analyser;
 
     const dataArray = new Uint8Array(analyser.frequencyBinCount);
+    // 상황별 기준값(personas.silence_threshold/silence_duration_ms)이 없으면 기본값을 쓴다.
+    const silenceThreshold = situationRef.current?.silenceThreshold ?? SILENCE_THRESHOLD;
+    const silenceDurationMs = situationRef.current?.silenceDurationMs ?? SILENCE_DURATION_MS;
     let phase = speechAlreadyActive ? 'active' : 'waiting';
     let silenceStart = null;
     if (speechAlreadyActive) setListeningPhase('active');
@@ -366,7 +372,7 @@ export default function AirPodsLog() {
       }
 
       if (phase === 'waiting') {
-        if (avgAmplitude > SILENCE_THRESHOLD) {
+        if (avgAmplitude > silenceThreshold) {
           phase = 'active';
           setListeningPhase('active');
           if (bargeInConfirmTimerRef.current) {
@@ -374,10 +380,10 @@ export default function AirPodsLog() {
             bargeInConfirmTimerRef.current = null;
           }
         }
-      } else if (avgAmplitude < SILENCE_THRESHOLD) {
+      } else if (avgAmplitude < silenceThreshold) {
         if (silenceStart === null) {
           silenceStart = performance.now();
-        } else if (performance.now() - silenceStart > SILENCE_DURATION_MS) {
+        } else if (performance.now() - silenceStart > silenceDurationMs) {
           stopListeningAndProcess();
           return;
         }
@@ -568,6 +574,7 @@ export default function AirPodsLog() {
     }
 
     sessionIdRef.current = null;
+    situationRef.current = null;
     setSessionId(null);
     setMessages([]);
     setInputValue('');
@@ -729,7 +736,7 @@ export default function AirPodsLog() {
           const controller = new AbortController();
           ttsAbortControllerRef.current = controller;
           const audioBlob = await withTimeout(
-            synthesizeSpeech(text, voice, { signal: controller.signal }),
+            synthesizeSpeech(text, voice, { signal: controller.signal, situation: situationRef.current?.id ?? null }),
             PROCESSING_TIMEOUT_MS,
             'TTS 응답 시간 초과'
           );
@@ -816,9 +823,10 @@ export default function AirPodsLog() {
       const { sessionId } = await createSession(situationId);
       if (!sessionAliveRef.current) return; // 세션 생성 중 "종료"를 눌렀으면 중단
       sessionIdRef.current = sessionId;
+      situationRef.current = getSituationMeta(situationId);
       setSessionId(sessionId);
 
-      const greeting = getSituationMeta(situationId).greeting ?? GENERAL_CHAT.greeting;
+      const greeting = situationRef.current.greeting ?? GENERAL_CHAT.greeting;
       const greetingMsg = { id: Date.now(), sender: 'agent', text: greeting };
       setMessages((prev) => [...prev, greetingMsg]);
       await speakThenContinue(greeting, greetingMsg);
@@ -863,6 +871,7 @@ export default function AirPodsLog() {
       const { history } = await getSessionDetail(session.id);
       if (!sessionAliveRef.current) return; // 조회 중 "종료"를 눌렀으면 중단
       sessionIdRef.current = session.id;
+      situationRef.current = getSituationMeta(session.persona_id);
       setSessionId(session.id);
       setMessages(
         history.map((msg, i) => ({

@@ -136,11 +136,12 @@ export async function updateMySettings(voice) {
 }
 
 // signal(AbortSignal)을 넘기면 barge-in 등으로 재생을 중단할 때 진행 중인 요청 자체를 취소할 수 있다.
-export async function synthesizeSpeech(text, voice, { signal } = {}) {
+// situation(persona_id)을 넘기면 서버가 그 상황에 저장된 말투로 읽어준다.
+export async function synthesizeSpeech(text, voice, { signal, situation = null } = {}) {
   const res = await fetch('/api/tts', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
-    body: JSON.stringify({ text, voice }),
+    body: JSON.stringify({ text, voice, situation }),
     signal,
   });
   if (!res.ok) {

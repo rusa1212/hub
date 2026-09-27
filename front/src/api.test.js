@@ -51,6 +51,16 @@ describe('synthesizeSpeech', () => {
         expect.objectContaining({ signal: undefined })
       );
     });
+
+    it('N4: situation을 넘기면 요청 본문에 담기고, 안 넘기면 null로 보낸다', async () => {
+      fetchMock.mockResolvedValue({ ok: true, blob: () => Promise.resolve(new Blob()) });
+
+      await synthesizeSpeech('안녕', 'ko-A', { situation: 'sleeping' });
+      await synthesizeSpeech('안녕', 'ko-A');
+
+      expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ text: '안녕', voice: 'ko-A', situation: 'sleeping' });
+      expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({ text: '안녕', voice: 'ko-A', situation: null });
+    });
   });
 
   // ── 실패/비정상 케이스 ──────────────────────────────

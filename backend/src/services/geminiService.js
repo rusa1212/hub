@@ -67,7 +67,7 @@ ${SITUATION_PERSONA_INSTRUCTION}
 
 [현재 세션 상황]
 - 사용자가 화면에서 "${persona.label}" 상황을 직접 선택했어. 대화 내내 아래 톤과 추천 방향을 기본값으로 유지해.
-- ${persona.prompt}`;
+- ${persona.prompt}${persona.maxSentences ? `\n- 이 상황에서는 [응답 형식]의 1~3문장 규칙보다 우선해서, 반드시 ${persona.maxSentences}문장 이내로 답해.` : ''}`;
 }
 
 let client = null;
@@ -127,19 +127,34 @@ export async function transcribeAudio(audioBuffer, mimeType) {
   return response.text?.trim() ?? '';
 }
 
-export async function synthesizeSpeech(text, voice) {
+// style: 상황별 말투 지시(personas.tts_style, 영어 부사구). Gemini TTS는 "Say <말투>: <본문>" 형태의
+// 지시를 읽지 않고 말투로만 반영한다. 없으면 본문만 그대로 읽는다.
+export function buildTtsPrompt(text, style) {
+  return style ? `Say ${style}: ${text}` : text;
+}
+
+export async function synthesizeSpeech(text, voice, style = null) {
   const ai = getClient();
   const voiceName = AVAILABLE_TTS_VOICES.includes(voice) ? voice : TTS_VOICE;
-  const response = await ai.models.generateContent({
-    model: TTS_MODEL,
-    contents: [{ role: 'user', parts: [{ text }] }],
-    config: {
-      responseModalities: [Modality.AUDIO],
-      speechConfig: {
-        voiceConfig: { prebuiltVoiceConfig: { voiceName } },
+  const request = (prompt) =>
+    ai.models.generateContent({
+      model: TTS_MODEL,
+      contents: [{ role: 'user', parts: [{ text: prompt }] }],
+      config: {
+        responseModalities: [Modality.AUDIO],
+        speechConfig: {
+          voiceConfig: { prebuiltVoiceConfig: { voiceName } },
+        },
       },
-    },
-  });
+    });
+
+  let response = await request(buildTtsPrompt(text, style));
+  // 말투 지시가 붙으면 본문이 멀쩡해도 finishReason=SAFETY로 오디오 없이 끝나는 경우가 있다
+  // (예: "like helping someone drift off to sleep" 같은 비유). 이때는 말투 없이 한 번만 다시 읽는다.
+  if (style && !response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data) {
+    console.warn(`TTS 말투 적용 실패(finishReason=${response.candidates?.[0]?.finishReason}), 말투 없이 재시도`);
+    response = await request(text);
+  }
 
   const inlineData = response.candidates?.[0]?.content?.parts?.[0]?.inlineData;
   if (!inlineData?.data) {

@@ -15,6 +15,10 @@ function toPersona(row) {
     prompt: row.prompt,
     sortOrder: row.sort_order,
     isActive: row.is_active,
+    ttsStyle: row.tts_style,
+    maxSentences: row.max_sentences,
+    silenceThreshold: row.silence_threshold,
+    silenceDurationMs: row.silence_duration_ms,
   };
 }
 
@@ -25,7 +29,7 @@ export async function listPersonas() {
   const supabase = getSupabase();
   const { data, error } = await supabase
     .from('personas')
-    .select('id, label, emoji, greeting, prompt, sort_order, is_active')
+    .select('id, label, emoji, greeting, prompt, sort_order, is_active, tts_style, max_sentences, silence_threshold, silence_duration_ms')
     .order('sort_order', { ascending: true });
   if (error) throw error;
 
