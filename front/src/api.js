@@ -27,6 +27,11 @@ export async function createSession(situation) {
   });
 }
 
+// 상황 선택지 목록 (라벨/이모지/인사말/노출 여부). 로그인 없이 호출 가능.
+export async function getSituations() {
+  return request('/api/situations');
+}
+
 export async function getMySessions() {
   return request('/api/sessions/mine', {
     headers: await authHeaders(),

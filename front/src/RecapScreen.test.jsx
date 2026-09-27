@@ -4,12 +4,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, screen, waitFor } from '@testing-library/dom';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import RecapScreen from './RecapScreen.jsx';
-import { getSessionDetail, summarizeSession } from './api';
+import { SituationsProvider } from './SituationsContext.jsx';
+import { getSessionDetail, getSituations, summarizeSession } from './api';
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
 vi.mock('./api', () => ({
   getSessionDetail: vi.fn(),
+  getSituations: vi.fn(),
   summarizeSession: vi.fn(),
 }));
 
@@ -19,12 +21,14 @@ function renderRecap(onContinue = vi.fn()) {
   const root = createRoot(container);
   act(() => {
     root.render(
-      <MemoryRouter initialEntries={['/recap/session-1']}>
-        <Routes>
-          <Route path="/recap/:sessionId" element={<RecapScreen onContinue={onContinue} />} />
-          <Route path="/" element={<p>홈 화면</p>} />
-        </Routes>
-      </MemoryRouter>
+      <SituationsProvider>
+        <MemoryRouter initialEntries={['/recap/session-1']}>
+          <Routes>
+            <Route path="/recap/:sessionId" element={<RecapScreen onContinue={onContinue} />} />
+            <Route path="/" element={<p>홈 화면</p>} />
+          </Routes>
+        </MemoryRouter>
+      </SituationsProvider>
     );
   });
   return { container, root };
@@ -34,6 +38,12 @@ let mounted;
 
 beforeEach(() => {
   vi.clearAllMocks();
+  getSituations.mockResolvedValue({
+    situations: [
+      { id: 'commuting', label: '이동 중', emoji: '🚌', greeting: '', isActive: true },
+      { id: 'studying', label: '집중 모드', emoji: '📚', greeting: '', isActive: true },
+    ],
+  });
 });
 
 afterEach(() => {
@@ -60,7 +70,7 @@ describe('대화 종료 리캡', () => {
     mounted = renderRecap(onContinue);
 
     expect(await screen.findByText(/발표를 앞두고/)).toBeTruthy();
-    expect(screen.getByText('이동 중')).toBeTruthy();
+    expect(await screen.findByText('이동 중')).toBeTruthy();
     expect(screen.getByText('약 7분 · 내가 건넨 말 3회')).toBeTruthy();
 
     fireEvent.click(screen.getByRole('button', { name: '이어서 대화하기' }));
@@ -99,7 +109,7 @@ describe('대화 종료 리캡', () => {
     mounted = renderRecap();
 
     expect(await screen.findByRole('alert')).toHaveTextContent('대화 요약을 만들지 못했어요');
-    expect(screen.getByText('집중 모드')).toBeTruthy();
+    expect(await screen.findByText('집중 모드')).toBeTruthy();
     expect(screen.getByText('내가 건넨 말 1회')).toBeTruthy();
     expect(screen.getByRole('button', { name: '다시 시도' })).toBeTruthy();
   });

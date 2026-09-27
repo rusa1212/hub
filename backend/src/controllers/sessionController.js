@@ -8,14 +8,19 @@ import {
   setSessionSummary,
   recordInterruption,
 } from '../services/sessionStore.js';
-import { SITUATION_LABELS, summarizeSession } from '../services/geminiService.js';
+import { summarizeSession } from '../services/geminiService.js';
+import { listPersonas } from '../services/personaStore.js';
 
 export async function postSession(req, res, next) {
   const { situation } = req.body ?? {};
-  if (situation && !SITUATION_LABELS[situation]) {
-    return res.status(400).json({ message: `situation은 ${Object.keys(SITUATION_LABELS).join(', ')} 중 하나여야 합니다.` });
-  }
   try {
+    if (situation) {
+      // 새 세션은 선택 화면에 노출 중인(is_active) 상황으로만 만들 수 있다.
+      const activeIds = (await listPersonas()).filter((p) => p.isActive).map((p) => p.id);
+      if (!activeIds.includes(situation)) {
+        return res.status(400).json({ message: `situation은 ${activeIds.join(', ')} 중 하나여야 합니다.` });
+      }
+    }
     const sessionId = await createSession(situation ?? null, req.user?.id ?? null);
     res.status(201).json({ sessionId });
   } catch (err) {

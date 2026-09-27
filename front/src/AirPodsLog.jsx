@@ -23,19 +23,10 @@ import HistoryScreen from './HistoryScreen';
 import SettingsScreen from './SettingsScreen';
 import RecapScreen from './RecapScreen';
 import AdminScreen from './AdminScreen';
-import { SITUATIONS, SITUATION_META_BY_ID } from './situations';
+import { GENERAL_CHAT, useSituations } from './SituationsContext';
 import './AirPodsLog.css';
 import './Auth.css';
 import './Settings.css';
-
-const SITUATION_GREETINGS = {
-  studying: '집중 모드구나, 방해되지 않게 조용히 있을게. 필요할 때 편하게 불러줘.',
-  exercising: '운동 중이구나! 텐션 확 올려줄 준비 됐어.',
-  sleeping: '자기 전이구나, 편안하게 갈 수 있게 준비할게.',
-  morning: '좋은 아침, 일어나자마자 화면 볼 필요 없이 나랑 얘기하면서 하루 시작해보자.',
-  commuting: '이동 중이구나, 눈이랑 손은 편하게 두고 나랑 얘기하면서 가자.',
-  default: '안녕, 오늘 하루는 어땠어?',
-};
 
 // 무음 감지(VAD) 튜닝 값 — 환경/마이크에 따라 조정 필요
 const SILENCE_THRESHOLD = 10; // 볼륨 임계값 (0~128), "발화가 끝났다"고 판단하는 기준이라 다소 보수적으로 높게 잡음
@@ -82,6 +73,7 @@ export default function AirPodsLog() {
   const location = useLocation();
   const { user, signOut } = useAuth();
   const { voice, speed, volume } = useSettings();
+  const { situations, getSituationMeta } = useSituations();
   // 대화 기록을 저장하는 배열 (API 연동 시 이 배열을 통째로 LLM에 보냄)
   const [messages, setMessages] = useState([]);
   const [inputValue, setInputValue] = useState('');
@@ -826,7 +818,7 @@ export default function AirPodsLog() {
       sessionIdRef.current = sessionId;
       setSessionId(sessionId);
 
-      const greeting = SITUATION_GREETINGS[situationId] ?? SITUATION_GREETINGS.default;
+      const greeting = getSituationMeta(situationId).greeting ?? GENERAL_CHAT.greeting;
       const greetingMsg = { id: Date.now(), sender: 'agent', text: greeting };
       setMessages((prev) => [...prev, greetingMsg]);
       await speakThenContinue(greeting, greetingMsg);
@@ -1100,7 +1092,7 @@ export default function AirPodsLog() {
         에이전트 연결하기
       </button>
       {lastSession && (() => {
-        const meta = SITUATION_META_BY_ID[lastSession.persona_id ?? 'default'] ?? SITUATION_META_BY_ID.default;
+        const meta = getSituationMeta(lastSession.persona_id);
         return (
           <button
             type="button"
@@ -1132,7 +1124,7 @@ export default function AirPodsLog() {
       <h2 className="situation-title">지금 어떤 상황이야?</h2>
       <p className="situation-subtitle">상황에 맞춰 톤과 추천을 바꿀게요.</p>
       <div className="situation-options">
-        {SITUATIONS.map((s) => (
+        {situations.map((s) => (
           <button
             key={s.label}
             className="situation-option"
