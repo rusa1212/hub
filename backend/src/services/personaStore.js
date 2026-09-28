@@ -12,6 +12,7 @@ function toPersona(row) {
     label: row.label,
     emoji: row.emoji,
     greeting: row.greeting,
+    description: row.description,
     prompt: row.prompt,
     sortOrder: row.sort_order,
     isActive: row.is_active,
@@ -30,7 +31,7 @@ export async function listPersonas() {
   const supabase = getSupabase();
   const { data, error } = await supabase
     .from('personas')
-    .select('id, label, emoji, greeting, prompt, sort_order, is_active, tts_style, max_sentences, silence_threshold, silence_duration_ms, features')
+    .select('id, label, emoji, greeting, description, prompt, sort_order, is_active, tts_style, max_sentences, silence_threshold, silence_duration_ms, features')
     .order('sort_order', { ascending: true });
   if (error) throw error;
 

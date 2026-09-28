@@ -5,11 +5,12 @@ export async function getSituations(req, res, next) {
   try {
     const personas = await listPersonas();
     // prompt/ttsStyle/maxSentences는 서버 내부용(시스템 프롬프트·TTS 지시)이라 응답에서 제외한다.
-    const situations = personas.map(({ id, label, emoji, greeting, isActive, silenceThreshold, silenceDurationMs, features }) => ({
+    const situations = personas.map(({ id, label, emoji, greeting, description, isActive, silenceThreshold, silenceDurationMs, features }) => ({
       id,
       label,
       emoji,
       greeting,
+      description,
       isActive,
       silenceThreshold,
       silenceDurationMs,

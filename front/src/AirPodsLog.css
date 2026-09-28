@@ -330,6 +330,34 @@
   color: var(--text-secondary);
 }
 
+.situation-option {
+  position: relative;
+}
+
+.situation-option--recommended {
+  border-color: var(--color-teal);
+}
+
+.situation-option-badge {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: var(--color-teal);
+  color: var(--color-bg);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.situation-option-description {
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--text-secondary);
+  text-align: center;
+  word-break: keep-all;
+}
+
 /* ===== 버튼 ===== */
 .btn-primary {
   width: 100%;

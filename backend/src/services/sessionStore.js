@@ -61,6 +61,14 @@ export async function getSessionsByUser(userId) {
   return data;
 }
 
+// 대화 중 상황 전환 시 세션의 현재 상황을 바꾼다. 이후 저장되는 메시지부터 messages.persona_id
+// 트리거(005)가 새 값을 복사하므로, 전환 전 메시지는 이전 상황으로 남는다.
+export async function setSessionPersona(sessionId, personaId) {
+  const supabase = getSupabase();
+  const { error } = await supabase.from('sessions').update({ persona_id: personaId }).eq('id', sessionId);
+  if (error) throw error;
+}
+
 export async function setSessionSummary(sessionId, summary) {
   const supabase = getSupabase();
   const { error } = await supabase.from('sessions').update({ summary }).eq('id', sessionId);

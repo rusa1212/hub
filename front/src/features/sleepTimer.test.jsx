@@ -30,7 +30,7 @@ describe('getSleepTimerRemainingMs', () => {
 describe('useSleepTimer', () => {
   let onExpire;
   let hook;
-  const base = { idleMs: 10 * MIN, sessionId: 's1', listeningPhase: 'waiting' };
+  const base = { idleMs: 10 * MIN, sessionKey: 's1', listeningPhase: 'waiting' };
 
   beforeEach(() => {
     vi.useFakeTimers();
@@ -58,7 +58,7 @@ describe('useSleepTimer', () => {
   it('기능이 꺼져 있거나 세션이 없으면 동작하지 않는다', () => {
     render({ conversationState: 'listening', idleMs: null });
     advance(60 * MIN);
-    rerender({ conversationState: 'listening', sessionId: null });
+    rerender({ conversationState: 'listening', sessionKey: null });
     advance(60 * MIN);
     expect(onExpire).not.toHaveBeenCalled();
   });

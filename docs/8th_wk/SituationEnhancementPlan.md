@@ -11,7 +11,7 @@
 | 1 | 상황 정의를 `personas` 테이블 단일 출처로 통합 | ✅ 완료 (`e048af3`) |
 | 2 | 상황별 TTS 말투 · 최대 문장 수 · 무음 감지(VAD) 기준 | ✅ 완료 (`0527010`), 실사용 튜닝 필요 |
 | 3 | 상황별 고유 기능 (타이머 · 브리핑 등) | 🟨 수면 타이머·뽀모도로 완료 (`013`), 나머지 보류 |
-| 4 | 선택 UX 개선 (시간대 추천 · 대화 중 전환 · 설명 문구) | ⬜ 예정 |
+| 4 | 선택 UX 개선 (시간대 추천 · 대화 중 전환 · 설명 문구) | ✅ 완료 (`014`), 실호출 검증 필요 |
 | 5 | 신규 상황 추가 (요리·집안일 / 산책·휴식 / 기분 전환) | ⬜ 예정 |
 | 6 | 상황별 사용 데이터로 검증 (관리자 통계) | ⬜ 예정 |
 
@@ -156,6 +156,32 @@ update personas set features = '{"pomodoro": {"focusMinutes": 25, "breakMinutes"
 - 각 선택지 아래에 짧은 설명을 표시: `personas.description` 컬럼 추가 + `GENERAL_CHAT.description`
   - 예) 자기 전: "차분한 목소리, 잔잔한 음악 추천" / 그냥 대화: "추천 없이 이야기만 나눠요"
 
+### 4-4. 구현 결과
+
+- **4-3 설명 문구**: `014_persona_description.sql`로 `personas.description` 추가, `GET /api/situations`에 포함.
+  '그냥 대화'는 `GENERAL_CHAT.description`. 선택지 라벨 아래에 한 줄로 표시
+- **4-1 시간대 추천**: 프런트 순수 함수 `front/src/situationRecommend.js`의 `recommendSituation(now, situations)`.
+  추천 상황에 "지금 추천" 배지와 강조 테두리만 붙이고 순서·자동 선택은 그대로. 대상이 숨김 처리돼 있으면 추천 안 함.
+  "최근 7일 최다 사용" 대체 추천은 보류 (6단계 데이터가 쌓인 뒤 판단)
+- **4-2 대화 중 전환**
+  - `geminiService.generateReply(history, persona, { switchTargets })`가 `switch_situation({ id })` 도구를 노출.
+    허용값은 활성 상황 중 현재 상황을 뺀 것 ('그냥 대화'로는 전환하지 않음, '그냥 대화'에서 다른 상황으로는 가능)
+  - 도구 호출이 오면 도구 결과 + 새 상황 프롬프트로 한 번 더 호출해 최종 답변을 받는다 (전환 턴만 LLM 2회).
+    두 번째 호출은 `functionCallingConfig.mode = NONE`으로 재호출을 막고, "바꿨다는 사실을 한 문장으로" 알리게 함
+  - 허용 목록 밖 id면 전환하지 않고 원래 상황으로 답함
+  - 프롬프트 규칙: 상황이 바뀌었다고 **분명히** 말할 때만 전환 ("어제 운동했어" 같은 언급은 제외, 애매하면 안 바꿈)
+  - `postChat`: 사용자 발화 저장 → `sessions.persona_id` 갱신 → 답변 저장 순서. 전환 요청 발화는 이전 상황, 답변부터 새 상황으로 기록.
+    응답에 전환 시에만 `situation` 포함
+  - 프런트: `situation`이 오면 `situationRef`를 교체 → 그 답변의 TTS 말투부터, VAD는 다음 듣기부터 적용.
+    수면 타이머·뽀모도로는 상황이 바뀌면 그 시점부터 다시 잰다 (`sessionKey` = 세션 id + 상황 id)
+  - `sessions.initial_persona_id`는 추가하지 않음: 메시지별 `persona_id`로 전환 전후를 구분할 수 있어서 당장 필요 없음.
+    6단계 지표에서 "처음 고른 상황"이 필요해지면 그때 추가
+- 테스트: `front/src/situationRecommend.test.js`, `backend/src/services/geminiService.test.js`
+  (백엔드는 테스트 스크립트가 없어 리포 루트에서 `npx vitest run backend`로 실행)
+- 남은 확인
+  - [ ] Supabase에 `014` 실행
+  - [ ] 실제 Gemini로 전환 확인 — 작업 당시 503(high demand)으로 미검증. 도구 스키마 수락 여부, 오탐("어제 운동했어")이 없는지 확인 필요
+
 ---
 
 ## 5. 신규 상황 추가 (5단계)
@@ -169,7 +195,7 @@ update personas set features = '{"pomodoro": {"focusMinutes": 25, "breakMinutes"
 | `venting` | 기분 전환 | 😮‍💨 | 털어놓기. 조언보다 공감·경청 위주, 음악 추천 자제 | 대기 2000ms, 문장 2 |
 
 ```sql
--- 예시 (014_new_situations.sql)
+-- 예시 (015_new_situations.sql)
 insert into personas (id, label, emoji, greeting, prompt, sort_order, tts_style, max_sentences, silence_threshold)
 values ('cooking', '요리·집안일', '🍳',
         '요리하는구나! 손 바쁘니까 필요한 거 있으면 말로 해.',
@@ -211,7 +237,7 @@ values ('cooking', '요리·집안일', '🍳',
 
 ### 6-3. 구현
 
-- `015_persona_insights.sql`: 위 지표를 한 번에 주는 뷰 `persona_insights` (기간 파라미터가 필요하면 함수로)
+- `016_persona_insights.sql`: 위 지표를 한 번에 주는 뷰 `persona_insights` (기간 파라미터가 필요하면 함수로)
 - 백엔드 `GET /api/admin/situations/stats` (기존 `adminController`의 관리자 검사 재사용)
 - 프런트 `AdminScreen.jsx`에 상황별 표 추가 (관리자 화면은 예외적으로 시각 정보 위주여도 무방)
 - 개인정보: 집계 수치만 노출하고 대화 내용·사용자 식별 정보는 포함하지 않는다

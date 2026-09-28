@@ -26,6 +26,7 @@ import AdminScreen from './AdminScreen';
 import { GENERAL_CHAT, useSituations } from './SituationsContext';
 import { SLEEP_TIMER_FAREWELL, getSleepTimerIdleMs, useSleepTimer } from './features/sleepTimer';
 import { getPomodoroConfig, usePomodoro } from './features/pomodoro';
+import { recommendSituation } from './situationRecommend';
 import './AirPodsLog.css';
 import './Auth.css';
 import './Settings.css';
@@ -907,12 +908,14 @@ export default function AirPodsLog() {
     clearRequestError();
     setConversationState('processing');
     try {
-      const { reply, messageId } = await withTimeout(
+      const { reply, messageId, situation } = await withTimeout(
         sendMessage(sessionIdRef.current, textToSend),
         PROCESSING_TIMEOUT_MS,
         '응답 시간 초과'
       );
       if (!sessionAliveRef.current) return; // 응답 대기 중 "종료"를 눌렀으면 반영하지 않음
+      // 대화 중 상황 전환(백엔드가 situation을 줄 때만): 이 답변의 TTS 말투부터, VAD는 다음 듣기부터 새 설정을 쓴다
+      if (situation !== undefined) situationRef.current = getSituationMeta(situation);
       const replyMessage = { id: Date.now() + 1, serverMessageId: messageId, sender: 'agent', text: reply };
       setMessages((prev) => [...prev, replyMessage]);
       await speakThenContinue(reply, replyMessage);
@@ -1106,12 +1109,14 @@ export default function AirPodsLog() {
     speakThenContinue(text, noticeMsg);
   };
 
-  // situationRef는 세션 시작 시 setSessionId와 함께 채워지므로 sessionId가 바뀌는 렌더에서 최신값을 읽는다.
+  // situationRef는 세션 시작(setSessionId)·상황 전환(setMessages) 직전에 바뀌므로 그 렌더에서 최신값을 읽는다.
+  // 상황이 바뀌면 키도 바뀌어 타이머를 처음부터 다시 잰다.
   const situationFeatures = sessionId ? situationRef.current?.features : null;
+  const featureSessionKey = sessionId ? `${sessionId}:${situationRef.current?.id ?? ''}` : null;
   const pomodoroConfig = getPomodoroConfig(situationFeatures);
   useSleepTimer({
     idleMs: getSleepTimerIdleMs(situationFeatures),
-    sessionId,
+    sessionKey: featureSessionKey,
     conversationState,
     listeningPhase,
     onExpire: handleSleepTimerExpire,
@@ -1119,7 +1124,7 @@ export default function AirPodsLog() {
   usePomodoro({
     focusMs: pomodoroConfig?.focusMs,
     breakMs: pomodoroConfig?.breakMs,
-    sessionId,
+    sessionKey: featureSessionKey,
     conversationState,
     listeningPhase,
     onAnnounce: handlePomodoroAnnounce,
@@ -1170,6 +1175,9 @@ export default function AirPodsLog() {
     </div>
   );
 
+  // 선택 화면이 렌더될 때의 시각 기준. 화면에 오래 머물러 시간대가 바뀌는 경우는 드물어 따로 갱신하지 않는다.
+  const recommendedSituationId = location.pathname === '/situation' ? recommendSituation(new Date(), situations) : null;
+
   const SituationScreen = (
     <div className="situation-screen">
       <button
@@ -1186,11 +1194,13 @@ export default function AirPodsLog() {
         {situations.map((s) => (
           <button
             key={s.label}
-            className="situation-option"
+            className={`situation-option ${s.id === recommendedSituationId ? 'situation-option--recommended' : ''}`}
             onClick={() => handleSelectSituation(s.id)}
           >
+            {s.id === recommendedSituationId && <span className="situation-option-badge">지금 추천</span>}
             <span className="situation-option-emoji">{s.emoji}</span>
             <span className="situation-option-label">{s.label}</span>
+            {s.description && <span className="situation-option-description">{s.description}</span>}
           </button>
         ))}
       </div>

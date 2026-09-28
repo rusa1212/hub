@@ -49,7 +49,7 @@ describe('getPomodoroAnnouncement', () => {
 describe('usePomodoro', () => {
   let onAnnounce;
   let hook;
-  const base = { ...CONFIG, sessionId: 's1', listeningPhase: 'waiting' };
+  const base = { ...CONFIG, sessionKey: 's1', listeningPhase: 'waiting' };
 
   beforeEach(() => {
     vi.useFakeTimers();
@@ -109,7 +109,7 @@ describe('usePomodoro', () => {
   it('새 세션이 시작되면 시작 시각부터 다시 잰다', () => {
     render({ conversationState: 'listening' });
     advance(20 * MIN);
-    rerender({ conversationState: 'listening', sessionId: 's2' });
+    rerender({ conversationState: 'listening', sessionKey: 's2' });
     advance(20 * MIN);
     expect(onAnnounce).not.toHaveBeenCalled();
     advance(5 * MIN);

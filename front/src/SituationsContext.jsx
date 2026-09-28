@@ -8,6 +8,7 @@ export const GENERAL_CHAT = {
   emoji: '💬',
   label: '그냥 대화',
   greeting: '안녕, 오늘 하루는 어땠어?',
+  description: '추천 없이 이야기만 나눠요',
   isActive: true,
 };
 

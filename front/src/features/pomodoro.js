@@ -47,7 +47,8 @@ export function getPomodoroAnnouncement(phase, { focusMs, breakMs }) {
 // 알림은 발화 대기(listening + waiting) 중에만 한다. 경계 시점에 응답을 말하거나 처리 중이었다면
 // 대기로 돌아온 직후에 알리고, 그 사이 경계를 여러 번 지났다면(백그라운드 등) 현재 구간만 한 번 알린다.
 // 음성이 꺼진 상태(voiceDisabled)에선 conversationState가 idle이라 자연히 알림도 건너뛴다.
-export function usePomodoro({ focusMs, breakMs, sessionId, conversationState, listeningPhase, onAnnounce }) {
+// sessionKey가 바뀌면(새 세션 시작, 대화 중 상황 전환) 그 시점부터 다시 잰다. null이면 꺼짐.
+export function usePomodoro({ focusMs, breakMs, sessionKey, conversationState, listeningPhase, onAnnounce }) {
   const startedAtRef = useRef(Date.now());
   const announcedIndexRef = useRef(0);
   const onAnnounceRef = useRef(onAnnounce);
@@ -61,12 +62,12 @@ export function usePomodoro({ focusMs, breakMs, sessionId, conversationState, li
   useEffect(() => {
     startedAtRef.current = Date.now();
     announcedIndexRef.current = 0;
-  }, [sessionId]);
+  }, [sessionKey]);
 
   const waiting = conversationState === 'listening' && listeningPhase === 'waiting';
 
   useEffect(() => {
-    if (!focusMs || !breakMs || !sessionId || !waiting) return undefined;
+    if (!focusMs || !breakMs || !sessionKey || !waiting) return undefined;
     const config = { focusMs, breakMs };
     const elapsed = Date.now() - startedAtRef.current;
     const { index, phase } = getPomodoroPosition(elapsed, config);
@@ -77,5 +78,5 @@ export function usePomodoro({ focusMs, breakMs, sessionId, conversationState, li
     }
     const timer = setTimeout(() => setTick((n) => n + 1), getMsUntilNextBoundary(elapsed, config));
     return () => clearTimeout(timer);
-  }, [focusMs, breakMs, sessionId, waiting, tick]);
+  }, [focusMs, breakMs, sessionKey, waiting, tick]);
 }

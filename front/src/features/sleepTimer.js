@@ -27,7 +27,8 @@ export function getSleepTimerRemainingMs(lastActivityAt, now, idleMs) {
 // 머물러 있으므로 활동으로 치지 않는다 — 뒤척이는 소리 때문에 타이머가 계속 늘어나지 않게 하기 위함.
 // 타이머는 발화 대기(listening + waiting) 중에만 돌고, 그 외 상태에선 멈췄다가 대기로 돌아오면
 // 마지막 활동 시각 기준으로 남은 시간만큼 다시 건다.
-export function useSleepTimer({ idleMs, sessionId, conversationState, listeningPhase, onExpire }) {
+// sessionKey가 바뀌면(새 세션 시작, 대화 중 상황 전환) 처음부터 다시 잰다. null이면 꺼짐.
+export function useSleepTimer({ idleMs, sessionKey, conversationState, listeningPhase, onExpire }) {
   const lastActivityRef = useRef(Date.now());
   const prevStateRef = useRef(conversationState);
   const onExpireRef = useRef(onExpire);
@@ -38,7 +39,7 @@ export function useSleepTimer({ idleMs, sessionId, conversationState, listeningP
 
   useEffect(() => {
     lastActivityRef.current = Date.now();
-  }, [sessionId]);
+  }, [sessionKey]);
 
   useEffect(() => {
     if (conversationState === 'listening' && prevStateRef.current !== 'listening') {
@@ -50,9 +51,9 @@ export function useSleepTimer({ idleMs, sessionId, conversationState, listeningP
   const waiting = conversationState === 'listening' && listeningPhase === 'waiting';
 
   useEffect(() => {
-    if (!idleMs || !sessionId || !waiting) return undefined;
+    if (!idleMs || !sessionKey || !waiting) return undefined;
     const remaining = getSleepTimerRemainingMs(lastActivityRef.current, Date.now(), idleMs);
     const timer = setTimeout(() => onExpireRef.current?.(), remaining);
     return () => clearTimeout(timer);
-  }, [idleMs, sessionId, waiting]);
+  }, [idleMs, sessionKey, waiting]);
 }
