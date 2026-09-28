@@ -1,7 +1,7 @@
 // 대화 메시지 처리 컨트롤러: 세션 소유자 확인 후 Gemini에 메시지를 보내고 응답을 히스토리에 저장
-import { getSession, appendTurn } from '../services/sessionStore.js';
+import { getSession, appendTurn, setSessionPersona } from '../services/sessionStore.js';
 import { generateReply } from '../services/geminiService.js';
-import { getPersona } from '../services/personaStore.js';
+import { getPersona, listPersonas } from '../services/personaStore.js';
 
 export async function postChat(req, res, next) {
   const { sessionId, message } = req.body;
@@ -25,10 +25,15 @@ export async function postChat(req, res, next) {
     const history = [...session.history, { role: 'user', parts: [{ text: message }] }];
     // 세션 도중 상황이 숨김(is_active=false) 처리돼도 이미 시작한 대화는 원래 상황 프롬프트를 유지한다.
     const persona = await getPersona(session.situation);
-    const reply = await generateReply(history, persona);
+    // 대화 중 전환할 수 있는 상황: 선택 화면에 노출 중인 상황 중 현재 상황을 뺀 것 ('그냥 대화'로는 전환하지 않음)
+    const switchTargets = (await listPersonas()).filter((p) => p.isActive && p.id !== session.situation);
+    const { text: reply, switchedTo } = await generateReply(history, persona, { switchTargets });
+    // 전환을 요청한 사용자 발화는 이전 상황으로, 전환 후 답변부터 새 상황으로 기록되게 순서를 둔다.
     await appendTurn(sessionId, 'user', message);
+    if (switchedTo) await setSessionPersona(sessionId, switchedTo.id);
     const messageId = await appendTurn(sessionId, 'model', reply);
-    res.json({ reply, messageId });
+    // situation은 전환이 일어났을 때만 포함한다 (프런트는 이 키가 있으면 상황 설정을 교체).
+    res.json({ reply, messageId, ...(switchedTo && { situation: switchedTo.id }) });
   } catch (err) {
     next(err);
   }

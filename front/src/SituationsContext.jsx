@@ -8,6 +8,7 @@ export const GENERAL_CHAT = {
   emoji: '💬',
   label: '그냥 대화',
   greeting: '안녕, 오늘 하루는 어땠어?',
+  description: '추천 없이 이야기만 나눠요',
   isActive: true,
 };
 
@@ -20,6 +21,8 @@ function buildValue(dbSituations, loading, error) {
   return {
     // 선택 화면·기록 필터에 노출할 상황 (숨김 처리된 상황 제외, '그냥 대화'는 항상 마지막)
     situations: all.filter((s) => s.isActive),
+    // 숨김 처리된 상황: 관리자에게만 선택 화면에 "비공개"로 보여 공개 전 내부 테스트에 쓴다
+    hiddenSituations: dbSituations.filter((s) => !s.isActive),
     // 세션의 persona_id로 메타(이모지/라벨/인사말) 조회. null은 '그냥 대화'.
     getSituationMeta: (personaId) => (personaId == null ? GENERAL_CHAT : byId[personaId] ?? UNKNOWN_SITUATION),
     loading,

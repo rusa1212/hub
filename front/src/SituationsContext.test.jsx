@@ -13,11 +13,12 @@ vi.mock('./api', () => ({
 }));
 
 function Probe() {
-  const { situations, getSituationMeta, loading } = useSituations();
+  const { situations, hiddenSituations, getSituationMeta, loading } = useSituations();
   if (loading) return <p>loading</p>;
   return (
     <div>
       <p data-testid="labels">{situations.map((s) => s.label).join(',')}</p>
+      <p data-testid="hidden-labels">{hiddenSituations.map((s) => s.label).join(',')}</p>
       <p data-testid="hidden-meta">{getSituationMeta('hidden').label}</p>
       <p data-testid="null-meta">{getSituationMeta(null).label}</p>
       <p data-testid="unknown-meta">{getSituationMeta('removed').label}</p>
@@ -59,6 +60,8 @@ describe('SituationsContext', () => {
     render(<SituationsProvider><Probe /></SituationsProvider>);
 
     expect((await screen.findByTestId('labels')).textContent).toBe('운동 중,자기 전,그냥 대화');
+    // 숨긴 상황은 관리자 내부 테스트용 목록으로 따로 제공 ('그냥 대화'는 포함하지 않음)
+    expect(screen.getByTestId('hidden-labels').textContent).toBe('숨긴 상황');
     // 숨긴 상황도 과거 기록 표시용 조회는 가능해야 함
     expect(screen.getByTestId('hidden-meta').textContent).toBe('숨긴 상황');
     expect(screen.getByTestId('null-meta').textContent).toBe(GENERAL_CHAT.label);
