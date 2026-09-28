@@ -24,6 +24,8 @@ import SettingsScreen from './SettingsScreen';
 import RecapScreen from './RecapScreen';
 import AdminScreen from './AdminScreen';
 import { GENERAL_CHAT, useSituations } from './SituationsContext';
+import { SLEEP_TIMER_FAREWELL, getSleepTimerIdleMs, useSleepTimer } from './features/sleepTimer';
+import { getPomodoroConfig, usePomodoro } from './features/pomodoro';
 import './AirPodsLog.css';
 import './Auth.css';
 import './Settings.css';
@@ -1074,6 +1076,54 @@ export default function AirPodsLog() {
     setConversationState('idle');
     navigate(endingSessionId ? `/recap/${endingSessionId}` : '/');
   };
+
+  // 상황별 고유 기능(features/*)이 발화 대기 중에 먼저 말을 걸 때 공통으로 쓰는 준비 단계:
+  // 대기 중이던 녹음은 버리고(아직 말하지 않은 상태이므로) 안내 문구를 대화 목록에 남긴다.
+  const announceSituationNotice = (text) => {
+    if (mediaRecorderRef.current?.state === 'recording') {
+      pendingActionRef.current = 'discard';
+      mediaRecorderRef.current.stop();
+    }
+    const noticeMsg = { id: Date.now(), sender: 'agent', text };
+    setMessages((prev) => [...prev, noticeMsg]);
+    return noticeMsg;
+  };
+
+  // 수면 타이머('자기 전'): 작별 인사 후 기존 "대화 종료" 흐름으로 리캡 화면에 간다.
+  // 작별 인사 도중 사용자가 끼어들면(깨어 있으면) 종료하지 않고 대화를 이어간다.
+  const handleSleepTimerExpire = async () => {
+    if (!sessionAliveRef.current) return;
+    const farewellMsg = announceSituationNotice(SLEEP_TIMER_FAREWELL);
+    const interrupted = await playReply(SLEEP_TIMER_FAREWELL, farewellMsg);
+    if (!sessionAliveRef.current || interrupted) return;
+    handleEndConversation();
+  };
+
+  // 뽀모도로('집중 모드'): 알림 후 다시 발화 대기로 돌아간다.
+  const handlePomodoroAnnounce = (text) => {
+    if (!sessionAliveRef.current) return;
+    const noticeMsg = announceSituationNotice(text);
+    speakThenContinue(text, noticeMsg);
+  };
+
+  // situationRef는 세션 시작 시 setSessionId와 함께 채워지므로 sessionId가 바뀌는 렌더에서 최신값을 읽는다.
+  const situationFeatures = sessionId ? situationRef.current?.features : null;
+  const pomodoroConfig = getPomodoroConfig(situationFeatures);
+  useSleepTimer({
+    idleMs: getSleepTimerIdleMs(situationFeatures),
+    sessionId,
+    conversationState,
+    listeningPhase,
+    onExpire: handleSleepTimerExpire,
+  });
+  usePomodoro({
+    focusMs: pomodoroConfig?.focusMs,
+    breakMs: pomodoroConfig?.breakMs,
+    sessionId,
+    conversationState,
+    listeningPhase,
+    onAnnounce: handlePomodoroAnnounce,
+  });
 
   const HomeScreen = (
     <div className="home-screen">

@@ -19,6 +19,7 @@ function toPersona(row) {
     maxSentences: row.max_sentences,
     silenceThreshold: row.silence_threshold,
     silenceDurationMs: row.silence_duration_ms,
+    features: row.features ?? {},
   };
 }
 
@@ -29,7 +30,7 @@ export async function listPersonas() {
   const supabase = getSupabase();
   const { data, error } = await supabase
     .from('personas')
-    .select('id, label, emoji, greeting, prompt, sort_order, is_active, tts_style, max_sentences, silence_threshold, silence_duration_ms')
+    .select('id, label, emoji, greeting, prompt, sort_order, is_active, tts_style, max_sentences, silence_threshold, silence_duration_ms, features')
     .order('sort_order', { ascending: true });
   if (error) throw error;
 
