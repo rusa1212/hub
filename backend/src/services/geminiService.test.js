@@ -47,6 +47,27 @@ describe('buildSystemInstruction', () => {
   });
 });
 
+describe('buildSystemInstruction 안전 가이드', () => {
+  const VENTING = { id: 'venting', label: '기분 전환', prompt: '공감 위주.', maxSentences: 2, safetyProfile: 'supportive' };
+
+  it('기본 상황과 그냥 대화는 위험한 요청을 짧게 거절하는 기존 규칙을 쓴다', () => {
+    for (const persona of [null, SLEEPING]) {
+      const text = buildSystemInstruction(persona);
+      expect(text).toContain('자해·자살, 폭력');
+      expect(text).not.toContain('109');
+    }
+  });
+
+  it('supportive 상황은 자해·자살 언급을 거절하지 않고 상담 창구를 안내한다', () => {
+    const text = buildSystemInstruction(VENTING);
+    expect(text).toContain('자살예방상담전화 109');
+    expect(text).toContain('119');
+    expect(text).not.toContain('자해·자살, 폭력');
+    // 프롬프트 주입 방어 규칙은 두 프로필 모두 유지
+    expect(text).toContain('이전 지시 무시해');
+  });
+});
+
 describe('generateReply', () => {
   it('도구 호출이 없으면 한 번만 호출하고 그대로 답한다', async () => {
     generateContent.mockResolvedValueOnce({ text: '응 그래', functionCalls: undefined });

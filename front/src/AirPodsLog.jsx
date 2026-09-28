@@ -76,7 +76,7 @@ export default function AirPodsLog() {
   const location = useLocation();
   const { user, signOut } = useAuth();
   const { voice, speed, volume } = useSettings();
-  const { situations, getSituationMeta } = useSituations();
+  const { situations, hiddenSituations, getSituationMeta } = useSituations();
   // 대화 기록을 저장하는 배열 (API 연동 시 이 배열을 통째로 LLM에 보냄)
   const [messages, setMessages] = useState([]);
   const [inputValue, setInputValue] = useState('');
@@ -1191,13 +1191,14 @@ export default function AirPodsLog() {
       <h2 className="situation-title">지금 어떤 상황이야?</h2>
       <p className="situation-subtitle">상황에 맞춰 톤과 추천을 바꿀게요.</p>
       <div className="situation-options">
-        {situations.map((s) => (
+        {[...situations, ...(isAdmin ? hiddenSituations : [])].map((s) => (
           <button
             key={s.label}
             className={`situation-option ${s.id === recommendedSituationId ? 'situation-option--recommended' : ''}`}
             onClick={() => handleSelectSituation(s.id)}
           >
             {s.id === recommendedSituationId && <span className="situation-option-badge">지금 추천</span>}
+            {!s.isActive && <span className="situation-option-badge situation-option-badge--hidden">비공개</span>}
             <span className="situation-option-emoji">{s.emoji}</span>
             <span className="situation-option-label">{s.label}</span>
             {s.description && <span className="situation-option-description">{s.description}</span>}

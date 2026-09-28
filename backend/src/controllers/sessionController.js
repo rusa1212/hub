@@ -10,14 +10,19 @@ import {
 } from '../services/sessionStore.js';
 import { summarizeSession } from '../services/geminiService.js';
 import { listPersonas } from '../services/personaStore.js';
+import { isAdmin } from '../services/profileStore.js';
 
 export async function postSession(req, res, next) {
   const { situation } = req.body ?? {};
   try {
     if (situation) {
       // 새 세션은 선택 화면에 노출 중인(is_active) 상황으로만 만들 수 있다.
-      const activeIds = (await listPersonas()).filter((p) => p.isActive).map((p) => p.id);
-      if (!activeIds.includes(situation)) {
+      // 단, 관리자는 공개 전 내부 테스트를 위해 숨긴 상황으로도 만들 수 있다 (예: 015의 기분 전환).
+      const personas = await listPersonas();
+      const activeIds = personas.filter((p) => p.isActive).map((p) => p.id);
+      const allowHidden = !activeIds.includes(situation) && personas.some((p) => p.id === situation)
+        && (await isAdmin(req.user?.id));
+      if (!activeIds.includes(situation) && !allowHidden) {
         return res.status(400).json({ message: `situation은 ${activeIds.join(', ')} 중 하나여야 합니다.` });
       }
     }
